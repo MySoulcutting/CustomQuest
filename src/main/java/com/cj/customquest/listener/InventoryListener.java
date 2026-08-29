@@ -20,7 +20,7 @@ import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 
 /**
  * 背包内容变化后按玩家刷新提交物品任务进度。
- * 所有事件合并到下一 tick，避免一次操作重复重建计分板。
+ * 所有事件合并到下一 tick，避免一次操作重复发送 HUD 或重建计分板。
  */
 public final class InventoryListener implements Listener {
 

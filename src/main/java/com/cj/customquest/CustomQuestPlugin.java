@@ -17,6 +17,7 @@ import com.cj.customquest.navigation.NavigationManager;
 import com.cj.customquest.navigation.NavigationPayload;
 import com.cj.customquest.quest.QuestManager;
 import com.cj.customquest.quest.QuestStorage;
+import com.cj.customquest.tracking.QuestTrackingPayload;
 import com.cj.customquest.util.Messages;
 import org.bukkit.Bukkit;
 import org.bukkit.permissions.Permission;
@@ -67,6 +68,8 @@ public class CustomQuestPlugin extends Plugin {
 
         // SoulCore Fabric 客户端导航通道
         NavigationPayload.register();
+        // SoulCore Fabric 客户端任务追踪通道
+        QuestTrackingPayload.register();
 
         // 挂钩
         PapiHook.init();
@@ -80,7 +83,7 @@ public class CustomQuestPlugin extends Plugin {
         QuestManager.create(dataFolder);
         DialogueManager.create(dataFolder);
 
-        // 计分板（全息视图）
+        // 任务追踪（SoulCore HUD / 计分板回退）
         QuestBoard board = QuestBoard.create();
         board.configure(Settings.boardEnabled, Settings.boardTitle);
 
@@ -108,8 +111,14 @@ public class CustomQuestPlugin extends Plugin {
         // 定时保存玩家数据
         startAutosaveTask();
 
-        // 计分板低频兜底刷新（背包变化由监听器即时刷新）
+        // 任务追踪低频兜底刷新（背包变化由监听器即时刷新）
         startBoardTask();
+
+        // 支持热重载：onEnable 时已经在线的玩家不会再次触发 PlayerJoinEvent。
+        for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+            QuestManager.getInstance().getStorage().load(player);
+            board.update(player);
+        }
 
         Bukkit.getLogger().info("[CustomQuest] 插件已启用。");
     }
@@ -127,15 +136,25 @@ public class CustomQuestPlugin extends Plugin {
         } catch (Throwable e) {
             Bukkit.getLogger().warning("[CustomQuest] 卸载时清理导航状态失败: " + e.getMessage());
         }
+        try {
+            if (QuestBoard.getInstance() != null) {
+                QuestBoard.getInstance().clearAll();
+            }
+        } catch (Throwable e) {
+            Bukkit.getLogger().warning("[CustomQuest] 卸载时清理任务追踪失败: " + e.getMessage());
+        } finally {
+            try {
+                QuestTrackingPayload.unregister();
+            } catch (Throwable e) {
+                Bukkit.getLogger().warning("[CustomQuest] 卸载时注销任务追踪通道失败: " + e.getMessage());
+            }
+        }
         NavigationPayload.unregister();
         QuestStorage storage = QuestManager.getInstance() == null
                 ? null : QuestManager.getInstance().getStorage();
         try {
             if (expansion != null) {
                 expansion.unregister();
-            }
-            if (QuestBoard.getInstance() != null) {
-                QuestBoard.getInstance().clearAll();
             }
             if (storage != null) {
                 storage.saveAll();
@@ -161,7 +180,7 @@ public class CustomQuestPlugin extends Plugin {
         if (Settings.boardEnabled) {
             QuestBoard.getInstance().updateAll();
         }
-        // 重启计分板定时刷新任务（开关状态可能在本次重载中变化，开启时需重建任务、关闭时取消旧任务）
+        // 重启任务追踪定时刷新（开关状态可能在本次重载中变化）
         getInstance().startBoardTask();
         // 自动保存间隔也可能在本次重载中变化
         getInstance().startAutosaveTask();

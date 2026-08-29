@@ -1,5 +1,6 @@
 package com.cj.customquest.navigation;
 
+import com.cj.customquest.board.QuestBoard;
 import com.cj.customquest.quest.Quest;
 import com.cj.customquest.quest.QuestManager;
 import com.cj.customquest.util.Messages;
@@ -76,7 +77,7 @@ public final class NavigationManager {
 
     /** 清空所有目标与导航会话（reload 前调用） */
     public void clearTargets() {
-        stopAll(true);
+        stopAll(true, false);
         targets.clear();
     }
 
@@ -105,7 +106,7 @@ public final class NavigationManager {
             return false;
         }
         if (!player.getWorld().equals(target.location.getWorld())) {
-            stop(player, false, true);
+            stop(player, false, true, true);
             Messages.sendTo(player, "nav-cross-world");
             return false;
         }
@@ -114,19 +115,21 @@ public final class NavigationManager {
             return false;
         }
 
-        stop(player, false, true);
+        stop(player, false, true, false);
         if (!NavigationPayload.sendStart(player, TextUtil.parse(player, quest.getName()), target.location)) {
+            refreshTracking(player);
             Messages.sendTo(player, "nav-client-required");
             return false;
         }
         navigating.put(player.getUniqueId(), quest.getId());
+        refreshTracking(player);
         Messages.sendTo(player, "nav-start", Map.of("name", TextUtil.parse(player, quest.getName())));
         return true;
     }
 
     /** 玩家手动取消当前导航 */
     public void cancel(Player player) {
-        stop(player, true, true);
+        stop(player, true, true, true);
     }
 
     /** 任务完成或放弃时，静默结束对应导航。 */
@@ -137,7 +140,7 @@ public final class NavigationManager {
         UUID uuid = player.getUniqueId();
         String current = navigating.get(uuid);
         if (current != null && current.equalsIgnoreCase(questId)) {
-            stop(uuid, player, current, false, true);
+            stop(uuid, player, current, false, true, true);
         }
     }
 
@@ -157,7 +160,7 @@ public final class NavigationManager {
 
     /** 玩家退出时清理；客户端断线事件会同步清空显示。 */
     public void remove(Player player) {
-        stop(player, false, false);
+        stop(player, false, false, false);
     }
 
     /** 插件卸载时停止客户端导航并取消服务端任务。 */
@@ -166,7 +169,7 @@ public final class NavigationManager {
             task.cancel();
             task = null;
         }
-        stopAll(true);
+        stopAll(true, false);
         targets.clear();
     }
 
@@ -180,22 +183,22 @@ public final class NavigationManager {
             Quest quest = QuestManager.getInstance().getQuest(questId);
             NavTarget target = targets.get(questId.toLowerCase());
             if (player == null || !player.isOnline() || quest == null || target == null || target.location == null) {
-                stop(uuid, player, questId, false, player != null && player.isOnline());
+                stop(uuid, player, questId, false, player != null && player.isOnline(), true);
                 continue;
             }
             if (!QuestManager.getInstance().isAccepted(player, questId)) {
-                stop(uuid, player, questId, false, true);
+                stop(uuid, player, questId, false, true, true);
                 continue;
             }
             if (!player.getWorld().equals(target.location.getWorld())) {
                 Messages.sendTo(player, "nav-cross-world");
-                stop(uuid, player, questId, false, true);
+                stop(uuid, player, questId, false, true, true);
                 continue;
             }
             if (player.getLocation().distance(target.location) <= ARRIVE_DISTANCE) {
                 Messages.sendTo(player, "nav-arrived",
                         Map.of("name", TextUtil.parse(player, quest.getName())));
-                stop(uuid, player, questId, false, true);
+                stop(uuid, player, questId, false, true, true);
             }
         }
     }
@@ -213,23 +216,25 @@ public final class NavigationManager {
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player == null || quest == null || !player.getWorld().equals(target.location.getWorld())
                     || !NavigationPayload.sendStart(player, TextUtil.parse(player, quest.getName()), target.location)) {
-                stop(entry.getKey(), player, entry.getValue(), false, player != null && player.isOnline());
+                stop(entry.getKey(), player, entry.getValue(), false,
+                        player != null && player.isOnline(), true);
             }
         }
     }
 
-    private void stop(Player player, boolean notify, boolean sendPayload) {
+    private void stop(Player player, boolean notify, boolean sendPayload, boolean refreshTracking) {
         if (player == null) {
             return;
         }
         UUID uuid = player.getUniqueId();
         String questId = navigating.get(uuid);
         if (questId != null) {
-            stop(uuid, player, questId, notify, sendPayload);
+            stop(uuid, player, questId, notify, sendPayload, refreshTracking);
         }
     }
 
-    private void stop(UUID uuid, Player player, String questId, boolean notify, boolean sendPayload) {
+    private void stop(UUID uuid, Player player, String questId, boolean notify, boolean sendPayload,
+                      boolean refreshTracking) {
         if (!navigating.remove(uuid, questId)) {
             return;
         }
@@ -239,22 +244,33 @@ public final class NavigationManager {
         if (player != null && notify) {
             Messages.sendTo(player, "nav-cancelled");
         }
+        if (player != null && refreshTracking) {
+            refreshTracking(player);
+        }
     }
 
     private void stopSessionsForQuest(String questId) {
         for (Map.Entry<UUID, String> entry : navigating.entrySet()) {
             if (entry.getValue().equalsIgnoreCase(questId)) {
                 Player player = Bukkit.getPlayer(entry.getKey());
-                stop(entry.getKey(), player, entry.getValue(), false, player != null && player.isOnline());
+                stop(entry.getKey(), player, entry.getValue(), false,
+                        player != null && player.isOnline(), true);
             }
         }
     }
 
-    private void stopAll(boolean sendPayload) {
+    private void stopAll(boolean sendPayload, boolean refreshTracking) {
         for (Map.Entry<UUID, String> entry : navigating.entrySet()) {
             Player player = Bukkit.getPlayer(entry.getKey());
             stop(entry.getKey(), player, entry.getValue(), false,
-                    sendPayload && player != null && player.isOnline());
+                    sendPayload && player != null && player.isOnline(), refreshTracking);
+        }
+    }
+
+    private void refreshTracking(Player player) {
+        QuestBoard board = QuestBoard.getInstance();
+        if (board != null && player.isOnline()) {
+            board.update(player);
         }
     }
 

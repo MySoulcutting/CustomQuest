@@ -15,11 +15,11 @@ public final class Settings {
     /** 玩家数据自动保存间隔（秒） */
     public static int autosaveSeconds = 300;
 
-    /** 全息视图（右侧任务计分板）开关 */
+    /** 任务追踪总开关（SoulCore HUD 与回退计分板） */
     public static boolean boardEnabled = true;
-    /** 计分板标题（支持 & 颜色代码） */
+    /** 回退计分板标题（支持 & 颜色代码） */
     public static String boardTitle = "&6&l任务追踪";
-    /** 全息显示中每个任务之间的空行数（0 = 无空格） */
+    /** 回退计分板中每个任务之间的空行数（0 = 无空格） */
     public static int boardGapLines = 1;
 
     /** 任务书中每个任务之间的空行数（0 = 无空格） */

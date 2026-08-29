@@ -1,11 +1,14 @@
 package com.cj.customquest.board;
 
 import com.cj.customquest.config.Settings;
+import com.cj.customquest.navigation.NavigationManager;
 import com.cj.customquest.quest.Quest;
 import com.cj.customquest.quest.QuestManager;
 import com.cj.customquest.quest.QuestObjective;
 import com.cj.customquest.quest.QuestProgress;
 import com.cj.customquest.quest.QuestType;
+import com.cj.customquest.tracking.QuestTrackingPayload;
+import com.cj.customquest.tracking.QuestTrackingSnapshot;
 import com.cj.customquest.util.TextUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -26,7 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 任务计分板（全息视图）：玩家接取任务后，在右侧侧边栏显示任务标题与各项进度。
+ * 任务追踪路由：SoulCore 客户端使用 HUD，其余玩家回退到右侧计分板。
  */
 public final class QuestBoard {
 
@@ -44,8 +47,6 @@ public final class QuestBoard {
 
     /** 计分板标题（可在 config.yml 的 scoreboard.title 自定义） */
     private String title = "&6&l任务追踪";
-    /** 最多同时显示的任务数 */
-    private static final int MAX_QUESTS = 3;
     /** 低频兜底刷新间隔（秒）；常见背包变化由事件即时刷新 */
     private static final int UPDATE_INTERVAL = 5;
     /** 任务标题行默认格式（任务文件里未写 board-title 时使用） */
@@ -59,12 +60,16 @@ public final class QuestBoard {
     /** 描述任务内容行默认格式 */
     private static final String DESCRIBE_LINE_FORMAT = "{line}";
 
-    /** 由本插件设置过计分板的玩家 */
-    private final Set<UUID> owned = ConcurrentHashMap.newKeySet();
+    /** 当前有任务追踪状态的玩家（SoulCore HUD 与计分板共用） */
+    private final Set<UUID> tracked = ConcurrentHashMap.newKeySet();
+    /** 由本插件实际设置过计分板的玩家 */
+    private final Set<UUID> scoreboardOwned = ConcurrentHashMap.newKeySet();
     /** 每个玩家独立计分板 */
     private final Map<UUID, Scoreboard> boards = new ConcurrentHashMap<>();
-    /** 上次已应用的渲染结果；内容未变化时跳过计分板写入 */
-    private final Map<UUID, BoardState> states = new ConcurrentHashMap<>();
+    /** 设置回退计分板前玩家使用的主计分板；切换 HUD/清理时恢复。 */
+    private final Map<UUID, Scoreboard> previousBoards = new ConcurrentHashMap<>();
+    /** 上次已投递的模式与内容；内容未变化时跳过发包/计分板写入 */
+    private final Map<UUID, DeliveryState> states = new ConcurrentHashMap<>();
     /** 等待下一 tick 合并刷新的玩家，避免一次背包操作触发多次更新 */
     private final Set<UUID> queued = ConcurrentHashMap.newKeySet();
 
@@ -95,29 +100,95 @@ public final class QuestBoard {
     }
 
     /**
-     * 重建某个玩家的任务计分板（无任务时清空）。
+     * 重建某个玩家的任务追踪（无任务时清空）。
      */
     public void update(Player player) {
-        if (!enabled) {
+        update(player, false);
+    }
+
+    /** 客户端注册/注销任务通道后强制重新协商并投递当前快照。 */
+    public void refreshChannel(Player player) {
+        update(player, true);
+    }
+
+    private void update(Player player, boolean forceHudHeartbeat) {
+        if (player == null) {
             return;
         }
-        List<String> lines = buildLines(player);
-        if (lines.isEmpty()) {
+        if (!enabled) {
+            clear(player);
+            return;
+        }
+        QuestTrackingSnapshot snapshot = buildSnapshot(player);
+        if (snapshot.totalTaskCount() == 0) {
             clear(player);
             return;
         }
         UUID uuid = player.getUniqueId();
+        tracked.add(uuid);
+
+        DeliveryState hudState = DeliveryState.hud(
+                snapshot, QuestTrackingPayload.preferredVersion(player));
+        if (QuestTrackingPayload.canSend(player)) {
+            if (!forceHudHeartbeat && hudState.equals(states.get(uuid))) {
+                clearScoreboard(player);
+                return;
+            }
+            if (QuestTrackingPayload.sendSnapshot(player, snapshot)) {
+                clearScoreboard(player);
+                states.put(uuid, hudState);
+                return;
+            }
+            DeliveryState previous = states.get(uuid);
+            if (previous != null && previous.mode() == DeliveryMode.HUD) {
+                QuestTrackingPayload.sendClear(player);
+            }
+        }
+
+        List<String> lines = buildLines(player, snapshot);
+        if (lines.isEmpty()) {
+            clear(player);
+            return;
+        }
         String renderedTitle = TextUtil.color(title);
-        BoardState nextState = new BoardState(renderedTitle, List.copyOf(lines));
+        DeliveryState nextState = DeliveryState.scoreboard(snapshot, renderedTitle, lines);
         Scoreboard currentBoard = boards.get(uuid);
+        Scoreboard previousBoard = previousBoards.get(uuid);
+        if (currentBoard != null && player.getScoreboard() == currentBoard
+                && previousBoard != null && previousBoard.getObjective(DisplaySlot.SIDEBAR) != null) {
+            // 取得回退计分板后，其他插件可能才在主计分板上新增 Sidebar；此时也应立即让出。
+            clearScoreboard(player);
+            states.put(uuid, DeliveryState.suppressed(snapshot));
+            return;
+        }
         if (nextState.equals(states.get(uuid)) && currentBoard != null && player.getScoreboard() == currentBoard) {
             return;
         }
 
-        Scoreboard board = boards.computeIfAbsent(uuid,
-                ignored -> Bukkit.getScoreboardManager().getNewScoreboard());
-        player.setScoreboard(board);
-        owned.add(uuid);
+        if (currentBoard != null && player.getScoreboard() != currentBoard) {
+            // 其他插件在 CustomQuest 之后接管了计分板；立即让出，不在兜底刷新中抢回。
+            scoreboardOwned.remove(uuid);
+            boards.remove(uuid);
+            previousBoards.remove(uuid);
+            states.put(uuid, DeliveryState.suppressed(snapshot));
+            return;
+        }
+
+        Scoreboard board = currentBoard;
+        if (board == null) {
+            Scoreboard playerBoard = player.getScoreboard();
+            Scoreboard mainBoard = Bukkit.getScoreboardManager().getMainScoreboard();
+            if (playerBoard != mainBoard || playerBoard.getObjective(DisplaySlot.SIDEBAR) != null) {
+                // 不覆盖其他插件的私有计分板或主计分板已有的侧边栏。
+                states.put(uuid, DeliveryState.suppressed(snapshot));
+                return;
+            }
+            previousBoards.put(uuid, playerBoard);
+            board = Bukkit.getScoreboardManager().getNewScoreboard();
+            boards.put(uuid, board);
+            player.setScoreboard(board);
+            scoreboardOwned.add(uuid);
+        }
 
         Objective objective = board.getObjective("cq");
         if (objective == null) {
@@ -155,7 +226,7 @@ public final class QuestBoard {
     /** 背包事件调用：合并为下一 tick 的单次刷新。 */
     public void queueUpdate(Player player) {
         UUID uuid = player.getUniqueId();
-        if (!enabled || !owned.contains(uuid) || !tracksInventoryProgress(player) || !queued.add(uuid)) {
+        if (!enabled || !tracked.contains(uuid) || !tracksInventoryProgress(player) || !queued.add(uuid)) {
             return;
         }
         Bukkit.getScheduler().runTask(BukkitPlugin.getInstance(), () -> {
@@ -177,25 +248,74 @@ public final class QuestBoard {
         return false;
     }
 
-    private List<String> buildLines(Player player) {
-        Map<String, QuestProgress> accepted = QuestManager.getInstance().getPlayerData(player).getAccepted();
-        if (accepted.isEmpty()) {
-            return List.of();
-        }
-        List<String> lines = new ArrayList<>();
-        int count = 0;
-        int gap = Settings.boardGapLines;
-        for (Map.Entry<String, QuestProgress> entry : accepted.entrySet()) {
+    private QuestTrackingSnapshot buildSnapshot(Player player) {
+        List<QuestTrackingSnapshot.Task> candidates = new ArrayList<>();
+        for (Map.Entry<String, QuestProgress> entry
+                : QuestManager.getInstance().getPlayerData(player).getAccepted().entrySet()) {
             Quest quest = QuestManager.getInstance().getQuest(entry.getKey());
             if (quest == null) {
                 continue;
             }
-            if (count >= MAX_QUESTS) {
-                int remaining = accepted.size() - count;
-                if (remaining > 0) {
-                    lines.add("§7…还有 " + remaining + " 个任务");
+            List<String> renderedQuestLines = buildQuestLines(player, quest);
+            String trackingTitle = renderedQuestLines.isEmpty()
+                    ? TextUtil.parse(player, quest.getName()) : renderedQuestLines.getFirst();
+            int trackingTitleRgb = QuestTrackingSnapshot.legacyTitleRgb(
+                    TextUtil.parse(player, quest.getName()));
+            List<QuestTrackingSnapshot.Line> taskLines = new ArrayList<>();
+            if (!quest.getBoardLines().isEmpty() || quest.getType() == QuestType.DESCRIBE) {
+                for (int index = 1; index < renderedQuestLines.size()
+                        && taskLines.size() < QuestTrackingSnapshot.MAX_LINES_PER_TASK; index++) {
+                    taskLines.add(QuestTrackingSnapshot.Line.text(renderedQuestLines.get(index)));
                 }
-                break;
+            } else {
+                List<QuestObjective> objectives = quest.getObjectives();
+                int objectiveLineOffset = Math.max(1, renderedQuestLines.size() - objectives.size());
+                for (int index = 0; index < objectives.size()
+                        && taskLines.size() < QuestTrackingSnapshot.MAX_LINES_PER_TASK; index++) {
+                    QuestObjective objective = objectives.get(index);
+                    if (objective.getBoardLine() != null && !objective.getBoardLine().isEmpty()) {
+                        int renderedIndex = objectiveLineOffset + index;
+                        String customLine = renderedIndex < renderedQuestLines.size()
+                                ? renderedQuestLines.get(renderedIndex) : objective.getBoardLine();
+                        taskLines.add(QuestTrackingSnapshot.Line.text(customLine));
+                    } else {
+                        int total = Math.max(1, objective.getAmount());
+                        int current = Math.max(0, Math.min(
+                                QuestManager.getInstance().getObjectiveProgress(player, quest, index), total));
+                        String verb = quest.getType() == QuestType.KILL_MOB ? "击败 " : "收集 ";
+                        taskLines.add(QuestTrackingSnapshot.Line.progress(
+                                TextUtil.parse(player, verb + objective.getDisplay()),
+                                current,
+                                total));
+                    }
+                }
+            }
+            QuestTrackingSnapshot.TaskType type = switch (quest.getType()) {
+                case KILL_MOB -> QuestTrackingSnapshot.TaskType.KILL;
+                case SUBMIT_ITEM -> QuestTrackingSnapshot.TaskType.SUBMIT;
+                case DESCRIBE -> QuestTrackingSnapshot.TaskType.DESCRIBE;
+            };
+            candidates.add(new QuestTrackingSnapshot.Task(
+                    quest.getId(),
+                    entry.getValue().getAcceptedAt(),
+                    type,
+                    NavigationManager.getInstance().isNavigating(player, quest.getId()),
+                    NavigationManager.getInstance().hasTarget(quest.getId()),
+                    trackingTitleRgb,
+                    trackingTitle,
+                    taskLines));
+        }
+        return QuestTrackingSnapshot.select(candidates);
+    }
+
+    private List<String> buildLines(Player player, QuestTrackingSnapshot snapshot) {
+        List<String> lines = new ArrayList<>();
+        int count = 0;
+        int gap = Settings.boardGapLines;
+        for (QuestTrackingSnapshot.Task task : snapshot.tasks()) {
+            Quest quest = QuestManager.getInstance().getQuest(task.questId());
+            if (quest == null) {
+                continue;
             }
             // 计算该任务「完整块」所需行数（标题 + 内容行 + 任务间空行）
             List<String> questLines = buildQuestLines(player, quest);
@@ -204,11 +324,11 @@ public final class QuestBoard {
                 needed = MAX_LINES - 1;
             }
             if (lines.size() + needed > MAX_LINES - 1) {
-                int remaining = accepted.size() - count;
+                int remaining = snapshot.totalTaskCount() - count;
                 if (remaining > 0) {
                     lines.add("§7…还有 " + remaining + " 个任务");
                 }
-                break;
+                return lines;
             }
             count++;
             // 渲染该任务块（计分板侧边栏，应用 & 颜色）
@@ -223,6 +343,10 @@ public final class QuestBoard {
             for (int g = 0; g < gap && lines.size() < MAX_LINES - 1; g++) {
                 lines.add("");
             }
+        }
+        int remaining = snapshot.totalTaskCount() - count;
+        if (remaining > 0 && lines.size() < MAX_LINES) {
+            lines.add("§7…还有 " + remaining + " 个任务");
         }
         return lines;
     }
@@ -334,22 +458,33 @@ public final class QuestBoard {
         return TextUtil.papi(player, result);
     }
 
-    /** 清空某玩家的任务计分板（仅当计分板由本插件设置时） */
+    /** 清空某玩家的 HUD 与本插件计分板。 */
     public void clear(Player player) {
         UUID uuid = player.getUniqueId();
         states.remove(uuid);
+        tracked.remove(uuid);
         queued.remove(uuid);
-        if (owned.remove(uuid)) {
-            boards.remove(uuid);
-            player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
+        QuestTrackingPayload.sendClear(player);
+        clearScoreboard(player);
+    }
+
+    private void clearScoreboard(Player player) {
+        UUID uuid = player.getUniqueId();
+        Scoreboard board = boards.remove(uuid);
+        Scoreboard previous = previousBoards.remove(uuid);
+        if (scoreboardOwned.remove(uuid) && board != null && player.getScoreboard() == board) {
+            player.setScoreboard(previous != null
+                    ? previous : Bukkit.getScoreboardManager().getMainScoreboard());
         }
     }
 
     /** 玩家退出时清理记录（不操作计分板） */
     public void remove(Player player) {
         UUID uuid = player.getUniqueId();
-        owned.remove(uuid);
+        tracked.remove(uuid);
+        scoreboardOwned.remove(uuid);
         boards.remove(uuid);
+        previousBoards.remove(uuid);
         states.remove(uuid);
         queued.remove(uuid);
     }
@@ -364,31 +499,71 @@ public final class QuestBoard {
         }
     }
 
-    /** 只兜底刷新当前正在显示任务面板的玩家。 */
+    /** 只兜底刷新当前正在追踪任务的 HUD/计分板玩家。 */
     public void refreshTracked() {
         if (!enabled) {
             return;
         }
-        for (UUID uuid : new ArrayList<>(owned)) {
+        for (UUID uuid : new ArrayList<>(tracked)) {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null || !player.isOnline()) {
-                owned.remove(uuid);
+                tracked.remove(uuid);
+                scoreboardOwned.remove(uuid);
                 boards.remove(uuid);
+                previousBoards.remove(uuid);
                 states.remove(uuid);
                 queued.remove(uuid);
                 continue;
             }
-            update(player);
+            update(player, true);
         }
     }
 
-    /** 清空所有在线玩家的任务计分板 */
+    /** 清空所有在线玩家的任务追踪。 */
     public void clearAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            clear(player);
+            try {
+                clear(player);
+            } catch (Throwable exception) {
+                Bukkit.getLogger().warning("[CustomQuest] 清理玩家 " + player.getName()
+                        + " 的任务追踪失败: " + exception.getMessage());
+            }
         }
+        tracked.clear();
+        scoreboardOwned.clear();
+        boards.clear();
+        previousBoards.clear();
+        states.clear();
+        queued.clear();
     }
 
-    private record BoardState(String title, List<String> lines) {
+    private enum DeliveryMode {
+        HUD,
+        SCOREBOARD,
+        SUPPRESSED
+    }
+
+    private record DeliveryState(
+            DeliveryMode mode,
+            QuestTrackingSnapshot snapshot,
+            int protocolVersion,
+            String title,
+            List<String> lines
+    ) {
+        private DeliveryState {
+            lines = List.copyOf(lines);
+        }
+
+        static DeliveryState hud(QuestTrackingSnapshot snapshot, int protocolVersion) {
+            return new DeliveryState(DeliveryMode.HUD, snapshot, protocolVersion, "", List.of());
+        }
+
+        static DeliveryState scoreboard(QuestTrackingSnapshot snapshot, String title, List<String> lines) {
+            return new DeliveryState(DeliveryMode.SCOREBOARD, snapshot, 0, title, lines);
+        }
+
+        static DeliveryState suppressed(QuestTrackingSnapshot snapshot) {
+            return new DeliveryState(DeliveryMode.SUPPRESSED, snapshot, 0, "", List.of());
+        }
     }
 }

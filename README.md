@@ -1,7 +1,7 @@
 # CustomQuest —— Paper 任务插件
 
 CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的任务插件，
-提供多目标任务、NPC 分支对话、SQLite 玩家数据、计分板追踪、Kether 脚本以及 SoulCore 客户端导航。
+提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
 当前项目版本为 **1.6.3**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
@@ -19,10 +19,10 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
   - `kill_mob` —— 击杀 MythicMobs 怪物（可配置多个怪物目标，各自计数）
   - `submit_item` —— 提交物品（可配置多种物品）
   - `describe` —— 描述任务（无目标，仅展示；只能通过 `/cq quest complete` 指令强制完成），
-    用于在全息视图（计分板）上显示任务标题与任务内容
+    用于在任务追踪 HUD/计分板上显示任务标题与任务内容
 - ✅ **奖励**：任务完成时执行指令奖励（`commands`，控制台执行、支持 `%player%` 与 PAPI）
   + Kether 完成动作（`kether`）
-- ✅ **全息视图（任务计分板）**：config.yml 一键开关，接取任务后右侧计分板显示任务标题与各项进度
+- ✅ **双通道任务追踪**：SoulCore 客户端使用最多 5 项的任务 HUD；无对应通道或发包失败时自动回退右侧计分板
 - ✅ **任务导航**：CustomQuest 下发目标，SoulCore Fabric 客户端渲染原版信标光柱、无地形遮挡圆环与高对比度任务名/距离悬浮标签；不显示固定底部导航 HUD
 - ✅ **Kether 脚本动作**：点击聊天选项后、任务完成后均执行 TabooLib Kether 脚本
 
@@ -35,7 +35,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 | PlaceholderAPI | 必需；构建与联机测试使用 2.12.3 |
 | MythicMobs | 可选；构建使用 5.13.0 |
 | Citizens | 可选；构建使用 2.0.36-SNAPSHOT |
-| SoulCore Fabric | 可选；使用任务导航时客户端必须安装支持 `soulcore:quest_navigation` 的版本 |
+| SoulCore Fabric | 可选；任务 HUD 优先使用 `soulcore:quest_tracking_v3`（兼容 v2/v1），任务导航使用 `soulcore:quest_navigation` |
 | TabooLib | 6.2.4 维护线；首次启动需下载运行时模块，也可使用离线依赖包 |
 
 ## 安装
@@ -44,7 +44,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
-5. 使用任务导航的玩家还需安装与其 Minecraft 版本匹配、支持 `soulcore:quest_navigation` 的 SoulCore Fabric Mod；服务端不需要 SoulCore Paper 插件。
+5. 使用客户端任务 HUD/导航的玩家还需安装匹配 Minecraft 版本、支持 `soulcore:quest_tracking_v3`（兼容 v2/v1）/ `soulcore:quest_navigation` 的 SoulCore Fabric Mod；服务端不需要 SoulCore Paper 插件。未安装时任务追踪自动回退计分板。
 
 ### 离线安装（服务器无法访问 repo.tabooproject.org 时）
 
@@ -63,7 +63,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
 ```
 plugins/CustomQuest/
-├── config.yml            # 全局配置（自动保存间隔 + 全息视图开关）
+├── config.yml            # 全局配置（自动保存间隔 + 任务追踪开关）
 ├── messages.yml          # 消息文本
 ├── quests/               # 任务配置（一个任务一个 yml）
 │   ├── example_kill.yml
@@ -145,15 +145,17 @@ type: describe                 # 描述任务
 > **说明：接取任务不校验前置条件。** 任务门控（谁能看到并点击接取选项）请使用
 > NPC 对话分支的 data / PAPI 条件；接取后可用 `accept-data` 或 `data` 参数设置 NPC data 变量推进剧情。
 
-## 全息视图（任务计分板）
+## 任务追踪（SoulCore HUD / 计分板回退）
 
-`config.yml` 中配置开关、计分板标题与任务间空行：
+`scoreboard.enabled` 继续作为任务追踪总开关。新版客户端优先监听带标题颜色和导航按钮状态的
+`soulcore:quest_tracking_v3`；已有 v2 客户端继续使用颜色快照，更旧客户端使用 `soulcore:quest_tracking` v1；
+无通道或快照发送失败时使用原生计分板。`title` 与 `gap-lines` 仅影响回退计分板：
 
 ```yaml
 scoreboard:
-  enabled: true            # 是否打开全息任务追踪
-  title: "&6&l任务追踪"    # 计分板标题（支持 & 颜色）
-  gap-lines: 1             # 每个任务之间的空行数（0 = 无空格）
+  enabled: true            # HUD 与回退计分板的总开关
+  title: "&6&l任务追踪"    # 回退计分板标题（支持 & 颜色）
+  gap-lines: 1             # 回退计分板任务间空行（0 = 无空格）
 
 quest-book:
   gap-lines: 1             # 任务书中每个任务之间的空行数（0 = 无空格）
@@ -161,7 +163,18 @@ quest-book:
   no-quest: "&c您当前没有接取任务..."  # 无任务时第一行显示（顶格，可自行加空格）
 ```
 
-每项任务的显示内容在**任务文件里**完全自定义。
+回退计分板的每项任务显示内容可在**任务文件里**完全自定义。
+
+SoulCore HUD 使用紧凑、纯文本快照：导航中的任务优先，其余按接取时间与任务 ID 稳定排序，最多显示 5 项。
+标题会应用 `board-title` 与 PAPI；任务级 `board-line` 或目标自己的 `board-line` 会发送格式化后的纯文本。
+未自定义的击杀/提交目标以“击败/收集 + 显示名 + 实时进度”发送，描述任务使用 description；每个任务最多 2 行。
+所有 HUD 文本都会剥离颜色、控制字符并限制为单行与 256 UTF-8 bytes。v2 会另行提取任务 `name`
+在首个可见字符前实际生效的 `&0`–`&f` 颜色，用于客户端任务标题和目标圆点；未写颜色时客户端回退任务类型色。
+`board-title` 只决定显示文字，不覆盖任务 `name` 的强调色；旧 v1 客户端仍按任务类型上色。
+
+v3 快照会在 v2 颜色与稳定任务 ID 基础上标记任务是否配置了导航目标。SoulCore 只为存在目标的任务显示“导航”按钮；
+没有目标时完全不显示按钮。玩家点击后，客户端通过 `soulcore:quest_navigation_request` 请求切换导航，
+按钮在正在导航时显示“导航中”，再次点击会请求取消；服务端仍会重新校验任务已接取、目标存在且世界有效。
 
 ### 完全自定义显示（每个任务单独写）
 
@@ -228,7 +241,7 @@ objectives:
 
 例如针对某个目标自定义显示：`board-line: "&c击杀 {target} &e{current}&7/&e{total}"`。
 
-- 玩家接取任务后，右侧计分板实时显示每个任务的标题与各目标进度（击杀数/物品数）
+- 玩家接取任务后，支持通道的客户端实时更新 HUD；其他客户端在右侧计分板显示任务标题与各目标进度
 - **多项目标逐条显示**：多目标任务的**每个目标**都单独显示一行进度：
 
 ```
@@ -238,17 +251,17 @@ objectives:
  已击杀 ZombieMinion 2/5
 ```
 
-- 每个任务按「完整块」展示（标题 + 全部目标行），放不下的任务整体跳过并以「…还有 N 个任务」提示，
+- 回退计分板最多选取 5 个任务，并按「完整块」展示（标题 + 全部目标行）；受侧边栏 15 行限制，放不下的任务整体跳过并以「…还有 N 个任务」提示，
   **不会只显示部分目标**
 - 击杀 MythicMobs 怪物后**即时刷新**；提交物品类进度随背包数量自动刷新
-- **描述任务**：计分板显示任务标题 + 任务内容（description 逐行展示），完成（指令强制）后移除
-- 关闭开关后自动清空本插件设置的计分板（`/cq reload` 即时生效）
+- **描述任务**：HUD 最多显示两行描述；回退计分板显示任务标题 + 完整 description，完成（指令强制）后移除
+- 关闭开关后自动清空 SoulCore HUD 与本插件设置的计分板（`/cq reload` 即时生效）
 
 ## 任务书与导航
 
 ### 任务书（/quest）
 
-玩家执行 `/quest` 打开任务书，展示当前所有已接任务（按接取顺序，与全息视图一致），
+玩家执行 `/quest` 打开任务书，展示当前所有已接任务；
 每页显示 `per-page` 个任务，可翻页；任务之间按 `quest-book.gap-lines` 空行分隔。
 
 - 没有接取任务时，书的第一行显示 `quest-book.no-quest` 配置的文本（默认 `&c您当前没有接取任务...`，顶格显示，可自行加空格调整）
@@ -394,6 +407,8 @@ branches:                     # 从上到下找第一个「条件全部满足」
 - 导航只支持静态坐标、同世界单目标，不提供动态 NPC/实体追踪或路径规划。
 - “改进透明度/Fabulous”下，SoulCore 标签隔着水或玻璃时可能受到最终透明合成的轻微染色。
 - `/cq list` 当前会先发送无权限提示，但没有真正阻止非管理员继续列出任务；在修复前不要将任务列表视为私密信息。
+- 计分板回退只在玩家仍使用原生主计分板且没有其他侧边栏时启用；检测到其他插件计分板后会主动让出，不反复抢占。
+- 服务端每 5 秒向 SoulCore HUD 重发一次完整快照；客户端超过约 13 秒没有收到心跳会自动清空，覆盖热禁用和代理后端切换的残留场景。
 - 当前已验证 CustomQuest + PlaceholderAPI + SoulCore 的 Paper 1.21.11 导航链路；MythicMobs、Citizens 与大规模 SQLite 场景仍需单独集成测试。
 
 ## 构建
