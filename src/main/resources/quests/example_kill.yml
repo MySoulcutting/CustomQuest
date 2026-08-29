@@ -1,0 +1,91 @@
+# ================================================================
+# 示例任务：击杀 MythicMobs 怪物（多目标）
+# 文件位置：plugins/CustomQuest/quests/
+# ================================================================
+
+# 任务 ID（全局唯一，用于 quest accept 等 Kether 动作与 %customquest_done_<ID>%）
+quest-id: example_kill
+
+# 任务名称（支持 & 颜色代码与 PAPI）
+name: "&e清剿荒野"
+
+# ----------------------------------------------------------------
+# 全息视图（计分板）显示自定义（可选，二选一）：
+#
+# 方式一（完全自定义，推荐）：写 board-title + board-line 列表，
+#   直接指定计分板上显示的每一行（可写任意多行，不会自动生成目标行）。
+#   board-title 变量：{name} {id} {type}
+#   board-line 每行变量：
+#     {name} {id} {type} {current} {total}              —— 任务信息与总进度
+#     {target1} {display1} {mob1} {item1}               —— 第 1 个目标的标识/显示名
+#     {current1} {total1} {amount1}                     —— 第 1 个目标的进度/需求
+#     …… 依此类推，数字为目标序号（从 1 开始）
+# ----------------------------------------------------------------
+# board-title: "&6&l{name}"
+# board-line:
+#   - "&7目标1：击杀 &f{display1} &e{current1}&7/&e{total1}"
+#   - "&7目标2：击杀 &f{display2} &e{current2}&7/&e{total2}"
+#   - "&7总进度：&e{current}&7/&e{total}"
+
+# 任务描述（接取任务时显示，支持多行）
+description:
+  - "&7荒野上的怪物最近越来越猖獗，"
+  - "&7去清剿它们吧！"
+
+# 任务类型：kill_mob（击杀 MythicMobs 怪物）/ submit_item（提交物品）
+type: kill_mob
+
+# ----------------------------------------------------------------
+# 导航目标（可选）：SoulCore Fabric 客户端在此渲染信标光柱、悬浮标签与距离
+# 格式：世界名,x,y,z
+# ----------------------------------------------------------------
+# navigate: "world,100,64,200"
+
+# ----------------------------------------------------------------
+# 目标配置（一个任务可包含多个目标）
+# 写法一（多目标，推荐）：
+#   name 为可选的自定义显示名（计分板/提示里显示的文字，
+#   不填则显示 MythicMobs 怪物内部名）
+# ----------------------------------------------------------------
+objectives:
+  - mob: SkeletonKing      # MythicMobs 怪物内部名（用于击杀计数匹配）
+    amount: 10             # 击杀数量
+    name: "&7骷髅王"       # 自定义显示名（可选）
+    # 可选：该目标在计分板上的显示行格式（留空/不写 = 用 config.yml 的 kill-line）
+    # 可用变量：{mob} {item} {target} {display} {current} {total} {amount} {index} {name} {id} {type}
+    # board-line: "&c击杀 {target} &e{current}&7/&e{total}"
+  - mob: ZombieMinion
+    amount: 5
+    name: "&2僵尸小兵"
+
+# ----------------------------------------------------------------
+# 写法二（单目标简写，与 objectives 二选一，objectives 优先）：
+# mob: SkeletonKing
+# amount: 10
+# ----------------------------------------------------------------
+
+# 说明：接取任务不校验前置条件。
+# 任务门控（谁能看到/点击接取选项）请使用 NPC 对话分支的 data / PAPI 条件，
+# 或在对话选项中用 accept-quest 快捷指令 / Kether 动作 quest accept 接取。
+
+# 所有目标进度达成后是否自动完成任务（kill_mob 建议 true，submit_item 一般 false 等玩家主动提交）
+auto-complete: true
+
+# 是否可重复接取
+repeatable: false
+# 可重复接取的冷却时间（秒，仅 repeatable: true 时生效）
+cooldown: 3600
+
+# ----------------------------------------------------------------
+# 奖励一：指令奖励（以控制台执行，支持 %player% 与 PAPI 变量）
+# ----------------------------------------------------------------
+commands:
+  - "give %player% DIAMOND 3"
+  - "eco give %player% 100"
+
+# 奖励二：任务完成动作（TabooLib Kether 脚本，与指令奖励同时执行）
+# 可用 TabooLib Kether 全部内置动作（command/message/give-item 等）
+# 以及本插件注册的动作：quest accept/abandon/submit/complete/progress/has/done、dialogue open、npc data set/get/remove
+kether:
+  - "message '&a恭喜完成清剿任务！'"
+  - "give-item diamond 2"
