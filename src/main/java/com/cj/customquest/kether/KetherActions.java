@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
  *       可选：接取成功后设置当前 NPC 的 data 变量，用于推进分支对话</li>
  *   <li>{@code quest abandon <questId>} —— 放弃任务</li>
  *   <li>{@code quest submit <questId>} —— 提交任务进度（进度足够则完成）</li>
- *   <li>{@code quest complete <questId>} —— 强制完成任务并发放奖励</li>
+ *   <li>{@code quest complete <questId>} —— 强制完成任务</li>
  *   <li>{@code quest progress <questId>} —— 返回当前进度（数字）</li>
  *   <li>{@code quest has <questId>} —— 是否已接取（布尔）</li>
  *   <li>{@code quest done <questId>} —— 是否已完成（布尔）</li>

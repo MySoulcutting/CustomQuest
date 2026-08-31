@@ -9,13 +9,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QuestConfigTest {
 
     @Test
-    void loadsConditionCommandsSeparatelyFromCompletionRewards() throws Exception {
+    void loadsConditionCommandsAndIgnoresRemovedTaskOptions() throws Exception {
         YamlConfiguration config = new YamlConfiguration();
         config.loadFromString("""
                 quest-id: command_flow
@@ -28,6 +29,8 @@ class QuestConfigTest {
                   - "cq data set %player% 5 stage ready"
                 commands:
                   - "give %player% diamond 1"
+                kether:
+                  - "message old"
                 """);
         List<String> warnings = new ArrayList<>();
 
@@ -35,8 +38,17 @@ class QuestConfigTest {
 
         assertNotNull(quest);
         assertEquals(List.of("cq data set %player% 5 stage ready"), quest.getConditionCommands());
-        assertEquals(List.of("give %player% diamond 1"), quest.getCommands());
-        assertTrue(warnings.stream().anyMatch(message -> message.contains("auto-complete 已停用")));
+        assertTrue(warnings.stream().anyMatch(message -> message.contains("auto-complete, commands, kether")));
+
+        String questSource = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/quest/Quest.java"));
+        String managerSource = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/quest/QuestManager.java"));
+        assertFalse(questSource.contains("getCommands()"));
+        assertFalse(questSource.contains("getKether()"));
+        assertFalse(questSource.contains("isAutoComplete()"));
+        assertFalse(managerSource.contains("quest.getCommands()"));
+        assertFalse(managerSource.contains("quest.getKether()"));
     }
 
     @Test
@@ -60,7 +72,43 @@ class QuestConfigTest {
 
         assertTrue(plugin.contains("board.update(player);\n            QuestManager.getInstance().queueConditionCheck(player);"));
         assertTrue(listener.contains("QuestManager.getInstance().queueConditionCheck(event.getPlayer())"));
-        assertTrue(plugin.contains("startConditionTask();"));
-        assertTrue(plugin.contains("QuestManager.getInstance().refreshOnlineItemConditions()"));
+        assertFalse(plugin.contains("startConditionTask();"));
+        assertFalse(plugin.contains("refreshOnlineItemConditions()"));
+    }
+
+    @Test
+    void npcItemOverrideCannotBypassObjectivesOrCauseDoubleDeduction() throws Exception {
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/quest/QuestManager.java"));
+        int combinedCheck = manager.indexOf("combinedMissingItems(objectivePlan, itemPlan)");
+        int deduction = manager.indexOf("applyItemRemoval(itemContents, itemPlan)");
+
+        assertTrue(combinedCheck >= 0 && combinedCheck < deduction);
+        assertEquals(1, manager.split("applyItemRemoval\\(itemContents, itemPlan\\)", -1).length - 1);
+    }
+
+    @Test
+    void conditionCommandsOwnTheCustomMessageAndQuestPlaceholders() throws Exception {
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/quest/QuestManager.java"));
+
+        assertTrue(manager.contains("boolean hasCustomMessage"));
+        assertTrue(manager.contains("if (!hasCustomMessage)"));
+        assertTrue(manager.contains("\"message \""));
+        assertTrue(manager.contains("%quest_name%"));
+        assertTrue(manager.contains("%quest_id%"));
+    }
+
+    @Test
+    void itemConditionTriggersOnlyAfterSuccessfulNpcDeduction() throws Exception {
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/quest/QuestManager.java"));
+        int applyItems = manager.indexOf("applyItemRemoval(itemContents, itemPlan)");
+        int completed = manager.indexOf("data.getCompleted().put(quest.getId()", applyItems);
+        int trigger = manager.indexOf("triggerConditionReached(player, quest, acceptedProgress)", completed);
+
+        assertTrue(applyItems >= 0 && applyItems < completed && completed < trigger);
+        assertTrue(manager.contains("quest.getType() == QuestType.KILL_MOB"));
+        assertFalse(manager.contains("quest.getType() != QuestType.DESCRIBE"));
     }
 }

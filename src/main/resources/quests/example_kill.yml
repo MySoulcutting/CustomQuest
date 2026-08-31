@@ -68,29 +68,13 @@ objectives:
 # 任务门控（谁能看到/点击接取选项）请使用 NPC 对话分支的 data / PAPI 条件，
 # 或在对话选项中用 accept-quest 快捷指令 / Kether 动作 quest accept 接取。
 
-# 达成全部目标时只提示，不会自动完成；以下指令只负责推进当前玩家的 NPC data。
-# 击杀事件没有“当前 NPC”上下文，因此这里需要明确填写 Citizens NPC id。
+# 达成全部目标时执行一次。message 为聊天提示动作，支持 %quest_name% / %quest_id%。
+# 击杀事件没有“当前 NPC”上下文，修改分支变量时需要明确填写 Citizens NPC id。
 condition-commands:
+  - "message &a你已达成任务条件：&f%quest_name%"
   - "cq data set %player% 5 stage kill_ready"
-
-# 已停用的兼容配置：即使为 true 也不会自动完成，任务必须通过指令/NPC 对话提交。
-auto-complete: false
 
 # 是否可重复接取
 repeatable: false
 # 可重复接取的冷却时间（秒，仅 repeatable: true 时生效）
 cooldown: 3600
-
-# ----------------------------------------------------------------
-# 奖励一：指令奖励（以控制台执行，支持 %player% 与 PAPI 变量）
-# ----------------------------------------------------------------
-commands:
-  - "give %player% DIAMOND 3"
-  - "eco give %player% 100"
-
-# 奖励二：任务完成动作（TabooLib Kether 脚本，与指令奖励同时执行）
-# 可用 TabooLib Kether 全部内置动作（command/message/give-item 等）
-# 以及本插件注册的动作：quest accept/abandon/submit/complete/progress/has/done、dialogue open、npc data set/get/remove
-kether:
-  - "message '&a恭喜完成清剿任务！'"
-  - "give-item diamond 2"

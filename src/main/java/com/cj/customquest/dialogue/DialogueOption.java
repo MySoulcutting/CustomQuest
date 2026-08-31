@@ -1,9 +1,11 @@
 package com.cj.customquest.dialogue;
 
+import com.cj.customquest.quest.QuestObjective;
+
 import java.util.List;
 
 /**
- * 对话选项（可点击的聊天内容，点击后执行接取任务指令 / Kether 动作）。
+ * 对话选项（可点击内容，点击后执行任务接取、任务提交或 Kether 动作）。
  */
 public final class DialogueOption {
 
@@ -19,22 +21,22 @@ public final class DialogueOption {
     private final List<String> acceptData;
     /** 提交任务快捷指令：任务 ID（null 表示不提交） */
     private final String submitQuest;
-    /** 提交成功后设置的 NPC data 变量（"key=value" 列表） */
-    private final List<String> submitData;
+    /** NPC 选项覆盖的实际提交物品；空列表表示沿用任务目标 */
+    private final List<QuestObjective> submitItems;
     /** 点击后执行的 Kether 脚本（配置接取/提交任务时仅在对应操作成功后执行） */
     private final List<String> kether;
     /** 点击后是否关闭对话（预留） */
     private final boolean close;
 
     public DialogueOption(String id, String text, String hover, String acceptQuest, List<String> acceptData,
-                          String submitQuest, List<String> submitData, List<String> kether, boolean close) {
+                          String submitQuest, List<QuestObjective> submitItems, List<String> kether, boolean close) {
         this.id = id;
         this.text = text;
         this.hover = hover;
         this.acceptQuest = acceptQuest;
         this.acceptData = acceptData;
         this.submitQuest = submitQuest;
-        this.submitData = submitData;
+        this.submitItems = List.copyOf(submitItems);
         this.kether = kether;
         this.close = close;
     }
@@ -69,8 +71,8 @@ public final class DialogueOption {
         return submitQuest;
     }
 
-    public List<String> getSubmitData() {
-        return submitData;
+    public List<QuestObjective> getSubmitItems() {
+        return submitItems;
     }
 
     public List<String> getKether() {

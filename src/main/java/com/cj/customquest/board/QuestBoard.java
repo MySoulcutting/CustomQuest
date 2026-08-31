@@ -225,7 +225,7 @@ public final class QuestBoard {
      */
     @Deprecated(forRemoval = true)
     public void queueUpdate(Player player) {
-        QuestManager.getInstance().queueInventoryConditionCheck(player);
+        QuestManager.getInstance().queueInventoryRefresh(player);
     }
 
     private QuestTrackingSnapshot buildSnapshot(Player player) {
@@ -332,7 +332,7 @@ public final class QuestBoard {
     }
 
     /**
-     * 构建单个任务在计分板/任务书中的显示行（变量与 PAPI 已替换，& 颜色码保留）。
+     * 构建单个任务在 HUD/计分板中的显示行（变量与 PAPI 已替换，& 颜色码保留）。
      * 首行为标题行，后续为目标/描述/自定义内容行。
      */
     public List<String> buildQuestLines(Player player, Quest quest) {
@@ -425,7 +425,7 @@ public final class QuestBoard {
     }
 
     /**
-     * 应用自定义格式：替换变量 + PAPI 占位符（保留 & 颜色码，供计分板/任务书各自上色）。
+     * 应用自定义格式：替换变量 + PAPI 占位符（保留 & 颜色码，供 HUD/计分板各自处理）。
      */
     private String formatRaw(String template, Player player, Map<String, Object> vars) {
         if (template == null || template.isEmpty()) {

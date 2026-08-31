@@ -1,7 +1,6 @@
 package com.cj.customquest.command;
 
 import com.cj.customquest.CustomQuestPlugin;
-import com.cj.customquest.book.QuestBook;
 import com.cj.customquest.dialogue.DialogueManager;
 import com.cj.customquest.dialogue.DialoguePayload;
 import com.cj.customquest.hook.CitizensHook;
@@ -61,34 +60,6 @@ public final class MainCommand {
                 (sender, command, label, args) -> onTabComplete(sender, args),
                 base -> Unit.INSTANCE);
 
-        // /quest 指令（打开任务书 + 导航）
-        CommandStructure questStructure = new CommandStructure(
-                "quest",
-                List.of(),
-                "CustomQuest 任务书",
-                "/quest",
-                "customquest.use",
-                "",
-                PermissionDefault.TRUE,
-                Map.of(),
-                false
-        );
-        platformCommand.registerCommand(questStructure,
-                (sender, command, label, args) -> onQuestCommand(sender, args),
-                (sender, command, label, args) -> new ArrayList<>(),
-                base -> Unit.INSTANCE);
-    }
-
-    // ---------------- /quest 指令（任务书） ----------------
-
-    private static boolean onQuestCommand(ProxyCommandSender proxy, String[] args) {
-        CommandSender sender = (CommandSender) proxy.getOrigin();
-        if (!(sender instanceof Player player)) {
-            Messages.send(sender, "player-only");
-            return true;
-        }
-        QuestBook.open(player);
-        return true;
     }
 
     private static boolean onCommand(ProxyCommandSender proxy, String[] args) {
@@ -119,7 +90,7 @@ public final class MainCommand {
         return true;
     }
 
-    // ---------------- nav 子指令（内部：任务书导航按钮回调） ----------------
+    // ---------------- nav 子指令（导航快捷入口） ----------------
 
     private static void handleNav(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {

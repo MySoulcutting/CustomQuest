@@ -45,7 +45,6 @@ public class CustomQuestPlugin extends Plugin {
     private static CustomQuestPlugin instance;
     private QuestExpansion expansion;
     private BukkitTask boardTask;
-    private BukkitTask conditionTask;
     private BukkitTask autosaveTask;
 
     public static CustomQuestPlugin getInstance() {
@@ -115,9 +114,6 @@ public class CustomQuestPlugin extends Plugin {
         // 定时保存玩家数据
         startAutosaveTask();
 
-        // 独立于任务板的物品条件低频兜底（覆盖插件直接修改背包、/give 等无事件路径）
-        startConditionTask();
-
         // 任务追踪低频兜底刷新（背包变化由监听器即时刷新）
         startBoardTask();
 
@@ -138,9 +134,6 @@ public class CustomQuestPlugin extends Plugin {
         }
         if (boardTask != null) {
             boardTask.cancel();
-        }
-        if (conditionTask != null) {
-            conditionTask.cancel();
         }
         try {
             NavigationManager.getInstance().shutdown();
@@ -230,14 +223,6 @@ public class CustomQuestPlugin extends Plugin {
         long period = 20L * Settings.autosaveSeconds;
         autosaveTask = Bukkit.getScheduler().runTaskTimer(BukkitPlugin.getInstance(),
                 () -> QuestManager.getInstance().getStorage().saveAll(), period, period);
-    }
-
-    private void startConditionTask() {
-        if (conditionTask != null) {
-            conditionTask.cancel();
-        }
-        conditionTask = Bukkit.getScheduler().runTaskTimer(BukkitPlugin.getInstance(),
-                () -> QuestManager.getInstance().refreshOnlineItemConditions(), 100L, 100L);
     }
 
     private void registerListener(org.bukkit.event.Listener listener) {

@@ -56,18 +56,9 @@ objectives:
   - item: "IRON_INGOT:10"
     name: "&f铁锭"
 
-# 集齐物品时只提示并推进 NPC 对话；不会在此处扣除物品或完成任务。
+# 物品任务只在 NPC 成功校验并扣除物品后执行一次达成动作。
 condition-commands:
-  - "cq data set %player% 5 stage item_ready"
-
-# 已停用的兼容配置；实际扣物与完成由 NPC 对话的 submit-quest 触发。
-auto-complete: false
+  - "message &a你已达成任务条件：&f%quest_name%"
 
 repeatable: false
 cooldown: 0
-
-commands:
-  - "give %player% EMERALD 2"
-
-kether:
-  - "message '&a感谢你的收集！'"

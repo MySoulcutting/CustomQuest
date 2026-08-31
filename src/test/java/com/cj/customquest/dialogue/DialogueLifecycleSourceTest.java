@@ -41,8 +41,9 @@ class DialogueLifecycleSourceTest {
         assertTrue(manager.contains("if (session == null) {\n            DialoguePayload.sendClose(player, sessionId);"));
         assertTrue(manager.contains("validInteractionNpc(player, session.npcId())"));
         assertTrue(manager.contains("quest == null || !QuestManager.getInstance().acceptQuest(player, quest)"));
-        assertTrue(manager.contains("quest == null || !QuestManager.getInstance().submitQuest(player, quest)"));
-        assertTrue(manager.indexOf("QuestManager.getInstance().submitQuest(player, quest)")
-                < manager.indexOf("applyData(player, npc, selected.getSubmitData())"));
+        assertTrue(manager.contains("selected.getSubmitItems()"));
+        assertTrue(manager.indexOf("QuestManager.getInstance().submitQuest(")
+                < manager.indexOf("if (!selected.getKether().isEmpty())"));
+        assertTrue(!manager.contains("getSubmitData()"));
     }
 }

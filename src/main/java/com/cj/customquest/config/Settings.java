@@ -22,13 +22,6 @@ public final class Settings {
     /** 回退计分板中每个任务之间的空行数（0 = 无空格） */
     public static int boardGapLines = 1;
 
-    /** 任务书中每个任务之间的空行数（0 = 无空格） */
-    public static int bookGapLines = 1;
-    /** 任务书每页显示的任务数 */
-    public static int bookPerPage = 3;
-    /** 任务书无任务时显示的文本（支持 & 颜色） */
-    public static String bookNoQuestText = "&c您当前没有接取任务...";
-
     private Settings() {
     }
 
@@ -53,16 +46,9 @@ public final class Settings {
             config.set("scoreboard.gap-lines", 1);
             changed = true;
         }
-        if (!config.contains("quest-book.gap-lines")) {
-            config.set("quest-book.gap-lines", 1);
-            changed = true;
-        }
-        if (!config.contains("quest-book.per-page")) {
-            config.set("quest-book.per-page", 3);
-            changed = true;
-        }
-        if (!config.contains("quest-book.no-quest")) {
-            config.set("quest-book.no-quest", "&c您当前没有接取任务...");
+        // 任务书功能已移除；升级时同步清理旧配置节点。
+        if (config.contains("quest-book")) {
+            config.set("quest-book", null);
             changed = true;
         }
 
@@ -70,10 +56,6 @@ public final class Settings {
         boardEnabled = config.getBoolean("scoreboard.enabled", true);
         boardTitle = config.getString("scoreboard.title", "&6&l任务追踪");
         boardGapLines = Math.max(0, config.getInt("scoreboard.gap-lines", 1));
-        bookGapLines = Math.max(0, config.getInt("quest-book.gap-lines", 1));
-        bookPerPage = Math.max(1, config.getInt("quest-book.per-page", 3));
-        bookNoQuestText = config.getString("quest-book.no-quest", "&c您当前没有接取任务...");
-
         if (changed) {
             try {
                 config.save(file);

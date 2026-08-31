@@ -37,18 +37,19 @@ public final class Messages {
         DEFAULTS.put("quest-abandoned", "&7已放弃任务：&f{name}");
         DEFAULTS.put("quest-command-only", "&c该任务仅可通过指令强制完成。");
         DEFAULTS.put("quest-progress-not-enough", "&c任务进度尚未完成（{current}/{total}）。");
+        DEFAULTS.put("quest-requirements-not-met", "&c没有达到任务要求。");
         DEFAULTS.put("quest-repeatable", "&7该任务可重复完成。");
         DEFAULTS.put("quest-cooldown", "&c该任务冷却中，剩余 &e{time} &c秒。");
         DEFAULTS.put("quest-not-repeatable", "&c该任务已经完成过，无法重复接取。");
-        DEFAULTS.put("items-not-enough", "&c提交物品不足：&f{item} &c需要 &e{need} &c个，你只有 &e{have} &c个。");
+        DEFAULTS.put("items-not-enough", "&c缺少 &f{item} &e{missing} &c个（需要 &e{need}&c，已有 &e{have}&c）。");
         DEFAULTS.put("items-submitted", "&7已提交 &e{amount} &7个 &f{item} &7。");
         DEFAULTS.put("dialogue-no-config", "&c该 NPC 没有配置对话。");
+        DEFAULTS.put("dialogue-submit-items-invalid", "&c该对话的 submit-items 只能用于提交物品任务，请联系管理员。");
         DEFAULTS.put("npc-not-found", "&cCitizens NPC &e{id} &c不存在。");
         DEFAULTS.put("npc-data-set", "&a已为玩家 &f{player} &a设置 NPC &f{id} &a的数据 &f{key} &a= &f{value} &a。");
         DEFAULTS.put("npc-data-get", "&7玩家 &f{player} &7在 NPC &f{id} &7的数据 &f{key} &7= &f{value}");
         DEFAULTS.put("npc-data-removed", "&a已删除玩家 &f{player} &a在 NPC &f{id} &a的数据 &f{key} &a。");
         DEFAULTS.put("npc-data-missing", "&7玩家 &f{player} &7在 NPC &f{id} &7没有数据 &f{key} &7。");
-        DEFAULTS.put("no-quests", "&7当前没有已接取的任务。");
         DEFAULTS.put("nav-no-location", "&c任务 &e{name} &c未配置导航位置。");
         DEFAULTS.put("nav-client-required", "&c任务导航需要安装并启用 SoulCore Fabric 客户端 Mod。");
         DEFAULTS.put("nav-start", "&a已开始导航：&f{name}");
@@ -80,7 +81,6 @@ public final class Messages {
                 "&7/cq help &f- 查看帮助",
                 "&7/cq list &f- 列出所有任务",
                 "&7/cq reload &f- 重载配置",
-                "&7/quest &f- 打开任务书",
                 "&7/cq quest accept <玩家> <任务ID> &f- 强制接取任务",
                 "&7/cq quest abandon <玩家> <任务ID> &f- 放弃任务",
                 "&7/cq quest complete <玩家> <任务ID> &f- 强制完成任务",
@@ -116,6 +116,18 @@ public final class Messages {
                 config.set(entry.getKey(), entry.getValue());
                 changed = true;
             }
+        }
+        // 清理旧版任务书帮助与专用消息，同时保留 /cq quest ... 管理子命令。
+        if (config.isList("help")) {
+            List<String> help = new ArrayList<>(config.getStringList("help"));
+            if (help.removeIf(Messages::isQuestBookHelpLine)) {
+                config.set("help", help);
+                changed = true;
+            }
+        }
+        if (config.contains("no-quests")) {
+            config.set("no-quests", null);
+            changed = true;
         }
         if (changed) {
             save();
@@ -183,5 +195,13 @@ public final class Messages {
     public static void broadcast(String key) {
         String message = prefix() + get(key);
         Bukkit.getOnlinePlayers().forEach(player -> player.sendMessage(message));
+    }
+
+    static boolean isQuestBookHelpLine(String value) {
+        if (value == null) {
+            return false;
+        }
+        String plain = value.replaceAll("(?i)&[0-9A-FK-ORX]", "").trim().toLowerCase(java.util.Locale.ROOT);
+        return plain.equals("/quest") || plain.startsWith("/quest ");
     }
 }

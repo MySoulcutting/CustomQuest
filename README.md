@@ -15,21 +15,19 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 - ✅ **SoulCore 交互式任务对话**：支持对应通道的客户端使用带按钮的任务对话界面；其他客户端自动回退到可点击聊天选项
 - ✅ **对话内接取任务指令**：对话选项直接配置 `accept-quest: <任务ID>` 即可接取任务（无需写 Kether），
   并可配置 `accept-data` 在接取成功后自动设置 NPC data 变量；Kether 写法 `quest accept <任务ID> [data <key> <value>]` 同样支持
-- ✅ **NPC 原子提交任务**：对话选项通过 `submit-quest` 实时校验任务条件；物品任务会在成功时一次性扣除背包物品，
-  随后的 `submit-data` 与 Kether 仅在提交成功后执行
-- ✅ **条件达成与任务完成分离**：击杀或收集目标达成时提示“你已达成任务条件”，并可执行 `condition-commands` 推进 NPC data；
-  不会自动发奖，真正完成必须由显式指令或 NPC 提交动作触发
+- ✅ **NPC 原子提交任务**：对话选项通过 `submit-quest` 实时校验任务条件，并可用 `submit-items` 覆盖该按钮实际扣除清单；物品任务成功时才一次性扣除背包物品，
+  随后的选项 Kether 仅在提交成功后执行，任务完成本身不修改 NPC data
+- ✅ **条件达成与任务完成分离**：击杀目标达成或物品在 NPC 成功提交时提示“你已达成任务条件”，并可执行 `condition-commands` 推进 NPC data；
+  达成条件本身不会自动完成任务，真正完成必须由显式指令或 NPC 提交动作触发
 - ✅ **接取任务不校验前置条件**：任务门控（谁能看到接取选项）完全由对话分支的 data / PAPI 条件控制
 - ✅ **三种任务类型，均支持多项目标**
   - `kill_mob` —— 击杀 MythicMobs 怪物（可配置多个怪物目标，各自计数）
   - `submit_item` —— 提交物品（可配置多种物品）
   - `describe` —— 描述任务（无目标，仅展示；只能通过 `/cq quest complete` 指令强制完成），
     用于在任务追踪 HUD/计分板上显示任务标题与任务内容
-- ✅ **奖励**：任务完成时执行指令奖励（`commands`，控制台执行、支持 `%player%` 与 PAPI）
-  + Kether 完成动作（`kether`）
 - ✅ **双通道任务追踪**：SoulCore 客户端使用最多 5 项的任务 HUD；无对应通道或发包失败时自动回退右侧计分板
 - ✅ **任务导航**：CustomQuest 下发目标，SoulCore Fabric 客户端渲染原版信标光柱、无地形遮挡圆环与高对比度任务名/距离悬浮标签；不显示固定底部导航 HUD
-- ✅ **Kether 脚本动作**：点击对话选项后、任务完成后均可执行 TabooLib Kether 脚本
+- ✅ **Kether 脚本动作**：NPC 对话选项可执行 TabooLib Kether 脚本
 
 ## 环境要求
 
@@ -117,20 +115,24 @@ objectives:
 #     item-name: "&b大钻石"       # 可选：只收集显示名为该文字的物品（铁砧改名）
 #     board-line: "&b收集 {target} &e{current}&7/&e{total}"  # 可选：计分板行格式
 
-# 达成条件时执行（控制台指令，支持 %player% / %quest% / PAPI）；不会完成任务或发奖
+# 达成条件时执行一次。message 为聊天提示；也可执行控制台指令修改 NPC data。
+# 可用变量：%player% / %quest% / %quest_id% / %quest_name% 以及 PAPI。
 condition-commands:
+  - "message &a你已达成任务条件：&f%quest_name%"
   - "cq data set %player% 5 stage kill_ready"
 
-auto-complete: false            # 兼容旧配置但已停用；true 也不会自动完成
 repeatable: false               # 是否可重复
 cooldown: 3600                  # 重复接取冷却（秒）
-
-commands:                       # 奖励：指令（控制台执行，支持 %player% / PAPI）
-  - "give %player% DIAMOND 3"
-kether:                         # 奖励：Kether 完成动作
-  - "message '&a任务完成！'"
-  - "give-item diamond 2"
 ```
+
+`condition-commands` 每次接取最多执行一次。未配置 `message` 动作时使用默认提示“你已达成任务条件：任务名”；配置 `message` 后会替换默认提示：
+
+- `message <文本>`：向玩家发送支持 `&` 颜色和 PAPI 的聊天消息
+- 其他内容：作为控制台指令执行
+- 支持 `%player%`、`%quest%`/`%quest_id%`、`%quest_name%`
+- 击杀任务在目标达成时执行；物品任务只在 NPC 校验并扣物成功后执行
+
+旧任务文件中的 `auto-complete`、任务级 `commands` 和任务级 `kether` 已删除并会被忽略；完成任务只更新任务状态，不执行这些旧动作。
 
 ### 描述任务（describe，展示型）
 
@@ -165,11 +167,6 @@ scoreboard:
   enabled: true            # HUD 与回退计分板的总开关
   title: "&6&l任务追踪"    # 回退计分板标题（支持 & 颜色）
   gap-lines: 1             # 回退计分板任务间空行（0 = 无空格）
-
-quest-book:
-  gap-lines: 1             # 任务书中每个任务之间的空行数（0 = 无空格）
-  per-page: 3              # 任务书每页显示的任务数
-  no-quest: "&c您当前没有接取任务..."  # 无任务时第一行显示（顶格，可自行加空格）
 ```
 
 回退计分板的每项任务显示内容可在**任务文件里**完全自定义。
@@ -266,19 +263,9 @@ objectives:
 - **描述任务**：HUD 最多显示两行描述；回退计分板显示任务标题 + 完整 description，完成（指令强制）后移除
 - 关闭开关后自动清空 SoulCore HUD 与本插件设置的计分板（`/cq reload` 即时生效）
 
-## 任务书与导航
+## 任务导航
 
-### 任务书（/quest）
-
-玩家执行 `/quest` 打开任务书，展示当前所有已接任务；
-每页显示 `per-page` 个任务，可翻页；任务之间按 `quest-book.gap-lines` 空行分隔。
-
-- 没有接取任务时，书的第一行显示 `quest-book.no-quest` 配置的文本（默认 `&c您当前没有接取任务...`，顶格显示，可自行加空格调整）
-- 每个任务标题后带一个 **「导航」** 按钮（点击即导航；已导航该任务时按钮变为红色 **「取消导航」**）
-
-### 导航系统
-
-在任务书里点击「导航」后：
+在 SoulCore HUD 中点击任务的「导航」按钮后：
 
 - 需要客户端安装支持 `soulcore:quest_navigation` 通道的 SoulCore Fabric Mod；未安装时不会建立导航
 - Mod 在目标位置渲染原版信标材质光柱、圆环和随距离缩放的任务名/距离悬浮标签
@@ -348,17 +335,25 @@ branches:                     # 从上到下找第一个「条件全部满足」
     options:
       submit:
         text: "&a&l[提交击杀任务]"
-        submit-quest: example_kill           # 再次校验击杀进度，成功才完成并发奖
-        submit-data: "stage=done"            # 仅提交成功后执行
-  item_ready:
+        submit-quest: example_kill           # 再次校验击杀进度，成功才完成
+  done:                       # 完成分支应放在进行中分支之前，不修改 NPC data
+    papi:
+      - "%customquest_done_example_submit% == true"
+    lines: ["&f感谢你的帮助！"]
+  item_collecting:
     data: stage
-    data-value: item_ready
-    lines: ["&a物品已集齐，现在交给我吧。"]
+    data-value: item_collecting
+    lines: ["&f把要求的物品放在主背包后交给我。"]
     options:
       submit:
         text: "&a&l[提交物品]"
         submit-quest: example_submit         # 实时检查主背包，成功后原子扣物并完成
-        submit-data: "stage=done"
+        # 可选：覆盖该按钮实际检测/扣除的清单；不写则沿用任务 objectives/items
+        submit-items:
+          - item: "DIAMOND:5"
+            name: "&b大钻石"                # 物品不足提示中的显示名（可选）
+            item-name: "&b大钻石"           # 只匹配该自定义名称（可选）
+          - "IRON_INGOT:10"                 # 无自定义名时可用简写
   fallback:
     default: true             # 兜底分支（所有分支都不满足时显示）
     lines: ["&f……"]
@@ -375,7 +370,12 @@ branches:                     # 从上到下找第一个「条件全部满足」
 - `accept-quest` 接取成功后才会设置 `accept-data` 中的变量（`key=value`，可写列表）；
   若选项还配置了 `kether`，只会在接取成功后继续执行
 - `submit-quest` 会调用非强制提交：击杀任务复查进度，物品任务复查并一次性扣除主背包物品；
-  只有成功后才设置 `submit-data` 并继续执行该选项的 Kether。一个选项不能同时配置 `accept-quest` 与 `submit-quest`
+  只有成功后才完成任务并继续执行该选项的 Kether，不会修改 NPC data。一个选项不能同时配置 `accept-quest` 与 `submit-quest`
+- `submit-items` 必须与 `submit-quest` 同时使用，且仅支持 `submit_item` 任务。配置后会覆盖该按钮本次实际扣除清单，
+  但任务原 `objectives/items` 仍负责进度、HUD 与达成条件；未配置时保持旧行为。两份清单相同时也只扣一次
+- `submit-items` 支持严格简写 `"MATERIAL:数量"`，或映射写法 `item` + 可选 `amount`、`name`、`item-name`；
+  空列表、未知材料、零数、负数和非数字会使对应对话文件拒绝加载
+- 任一物品不足时不会扣除或完成任务；先提示“没有达到任务要求”，再按配置顺序显示全部缺少物品、已有数量与缺少数量
 - 选项 Kether 执行时注入变量：`@NpcId`、`@BranchId`、`@Option`（兼容旧序号）、`@OptionId`、`@Player`
 - 单次对话最多发送 8 行、6 个选项，总载荷上限 8192 bytes；标题、行、按钮与悬浮文字会保留合法颜色样式并进行严格 UTF-8/长度控制
 - **NPC data 为玩家级数据**：每个玩家在该 NPC 上有独立的 data 值（持久化保存于 SQLite `data.db`），
@@ -383,14 +383,14 @@ branches:                     # 从上到下找第一个「条件全部满足」
 
 ## 自定义 Kether 动作
 
-在任意 Kether 脚本位置（对话选项、任务 `kether` 奖励）均可用：
+在 NPC 对话选项的 Kether 脚本中可用：
 
 | 动作 | 说明 |
 | --- | --- |
 | `quest accept <任务ID> [data <key> <value>]` | 接取任务（不校验前置条件）；可选在成功后设置当前 NPC 的 data 变量 |
 | `quest abandon <任务ID>` | 放弃任务 |
-| `quest submit <任务ID>` | 提交进度（足够则完成并发奖） |
-| `quest complete <任务ID>` | 强制完成并发奖（描述任务无效，仅可用指令完成） |
+| `quest submit <任务ID>` | 提交进度（足够则完成） |
+| `quest complete <任务ID>` | 强制完成（描述任务无效，仅可用指令完成） |
 | `quest progress <任务ID>` | 返回当前进度（数值） |
 | `quest has <任务ID>` / `quest done <任务ID>` | 是否已接取 / 已完成（布尔） |
 | `dialogue open [npcId]` | 打开 NPC 对话（缺省用当前 `@NpcId`） |
@@ -407,10 +407,9 @@ branches:                     # 从上到下找第一个「条件全部满足」
 | `/cq help` | 所有人 | 查看帮助 |
 | `/cq list` | customquest.admin | 列出所有任务 |
 | `/cq reload` | customquest.admin | 重载任务、对话与全局配置 |
-| `/quest` | 所有人 | 打开任务书（查看已接任务、点击导航、翻页） |
 | `/cq quest accept <玩家> <任务ID>` | customquest.admin | 强制接取任务 |
 | `/cq quest abandon <玩家> <任务ID>` | customquest.admin | 放弃任务 |
-| `/cq quest complete <玩家> <任务ID>` | customquest.admin | 强制完成任务并发奖（描述任务仅能通过此指令完成） |
+| `/cq quest complete <玩家> <任务ID>` | customquest.admin | 强制完成任务（描述任务仅能通过此指令完成） |
 | `/cq quest nav set <任务ID>` | customquest.admin | 设置任务导航位置为你的当前位置（写回任务文件） |
 | `/cq quest nav remove <任务ID>` | customquest.admin | 移除任务导航位置 |
 | `/cq data set <玩家> <npcId> <key> <value>` | customquest.admin | 设置指定玩家在该 NPC 上的 data 变量 |

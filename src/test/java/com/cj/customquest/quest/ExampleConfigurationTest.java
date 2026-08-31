@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -22,8 +23,11 @@ class ExampleConfigurationTest {
                 YamlConfiguration.loadConfiguration(new File(
                         "src/main/resources/dialogues/example_npc.yml")));
 
-        assertEquals("cq data set %player% 5 stage kill_ready", kill.getConditionCommands().getFirst());
-        assertEquals("cq data set %player% 5 stage item_ready", submit.getConditionCommands().getFirst());
+        assertEquals(List.of(
+                "message &a你已达成任务条件：&f%quest_name%",
+                "cq data set %player% 5 stage kill_ready"), kill.getConditionCommands());
+        assertEquals(List.of(
+                "message &a你已达成任务条件：&f%quest_name%"), submit.getConditionCommands());
         assertTrue(dialogue.getBranches().stream()
                 .flatMap(branch -> branch.getOptions().stream())
                 .map(DialogueOption::getSubmitQuest)

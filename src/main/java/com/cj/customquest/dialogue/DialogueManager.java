@@ -256,10 +256,10 @@ public final class DialogueManager {
             applyData(player, npc, selected.getAcceptData());
         } else if (selected.getSubmitQuest() != null && !selected.getSubmitQuest().isEmpty()) {
             Quest quest = QuestManager.getInstance().getQuest(selected.getSubmitQuest());
-            if (quest == null || !QuestManager.getInstance().submitQuest(player, quest)) {
+            if (quest == null || !QuestManager.getInstance().submitQuest(
+                    player, quest, selected.getSubmitItems())) {
                 return;
             }
-            applyData(player, npc, selected.getSubmitData());
         }
 
         if (!selected.getKether().isEmpty()) {

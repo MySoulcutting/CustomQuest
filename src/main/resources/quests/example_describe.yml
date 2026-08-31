@@ -33,12 +33,5 @@ type: describe
 # 导航目标（可选）：SoulCore Fabric 客户端在此渲染信标光柱、悬浮标签与距离
 # navigate: "world,100,64,200"      # 世界名,x,y,z
 
-# 以下字段对描述任务无效（接取后仅展示）：
-auto-complete: false
 repeatable: false
 cooldown: 0
-
-# 指令强制完成时执行的奖励（可选）
-commands: []
-kether:
-  - "message '&a剧情标记已更新！'"

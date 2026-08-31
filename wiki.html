@@ -144,7 +144,7 @@
 <header>
   <div class="logo">Custom<span>Quest</span></div>
   <div class="tag">MythicMobs × Citizens2 × Kether</div>
-  <div class="meta">Paper 1.21.x · Java 21 · 任务 / 对话 / 奖励 一体化插件</div>
+  <div class="meta">Paper 1.21.x · Java 21 · 任务 / 对话 / 导航 一体化插件</div>
 </header>
 
 <div class="layout">
@@ -158,6 +158,7 @@
   <h3>配置</h3>
   <a href="#config">全局配置 config.yml</a>
   <a href="#scoreboard">全息视图（计分板）</a>
+  <a href="#navigation">任务导航</a>
   <a href="#quest">任务配置 quests/</a>
   <a href="#conditions">分支门控条件写法</a>
   <a href="#dialogue">NPC 对话 dialogues/</a>
@@ -177,7 +178,7 @@
   <p>
     CustomQuest 是一款基于 <b>Paper 1.21.x</b> 服务端、由 <b>TabooLib 6.2.4（Kether 脚本引擎）</b> 驱动的任务插件，
     深度对接 <b>MythicMobs</b> 与 <b>Citizens2</b>：通过 Citizens NPC 对话接取任务，击杀 MythicMobs 怪物 / 提交物品完成任务，
-    以指令或 Kether 脚本发放奖励，并通过 NPC data 变量实现分支任务与分支对话。
+    通过 NPC 对话 Kether 执行扩展动作，并使用 NPC data 变量实现分支任务与分支对话。
   </p>
   <div class="notice">
     <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.6.4</b>，使用 Paper <b>1.21.1 API</b> 编译，
@@ -205,10 +206,10 @@
     <li><b>对话内接取任务指令：</b>对话选项直接配置 <code>accept-quest: &lt;任务ID&gt;</code> 即可接取任务（无需写 Kether），
       并可配置 <code>accept-data</code> 在接取成功后自动设置 NPC data 变量推进剧情；
       Kether 写法 <code>quest accept &lt;任务ID&gt; [data &lt;key&gt; &lt;value&gt;]</code> 同样支持。</li>
-    <li><b>条件达成与完成分离：</b>击杀或物品目标首次达成时提示玩家，并执行 <code>condition-commands</code>；
+    <li><b>条件达成与完成分离：</b>击杀目标首次达成或物品在 NPC 成功提交时提示玩家，并执行 <code>condition-commands</code>；
       任务不会自动结算，必须由显式指令或 NPC 提交动作完成。</li>
-    <li><b>NPC 原子提交：</b>对话选项使用 <code>submit-quest</code> 实时校验进度；物品任务仅在成功时一次性扣除背包物品，
-      随后的 <code>submit-data</code> 与 Kether 也只会在提交成功后执行。</li>
+    <li><b>NPC 原子提交：</b>对话选项使用 <code>submit-quest</code> 实时校验进度，并可用 <code>submit-items</code> 覆盖该按钮实际扣除清单；物品任务仅在成功时一次性扣除背包物品，
+      随后的选项 Kether 只会在提交成功后执行，任务完成本身不修改 NPC data。</li>
     <li><b>接取任务不校验前置条件：</b>任务门控（谁能看到接取选项）完全由对话分支的 data / PAPI 条件控制。</li>
     <li><b>任务类型 × 多项目标：</b>
       <ul>
@@ -218,10 +219,8 @@
           <b>只能通过 <code>/cq quest complete</code> 指令强制完成</b>。</li>
       </ul>
     </li>
-    <li><b>奖励：</b>任务完成时执行指令奖励（<code>commands</code>，控制台执行，支持 <code>%player%</code> 与 PAPI）
-      + Kether 完成动作（<code>kether</code>）。</li>
     <li><b>全息视图：</b>config.yml 一键开关，玩家接取任务后右侧计分板显示任务标题与各项实时进度。</li>
-    <li><b>Kether 动作：</b>点击聊天选项后、任务完成后均执行 Kether 脚本，并提供 <code>quest accept</code>、<code>npc data set</code> 等自定义动作。</li>
+    <li><b>Kether 动作：</b>NPC 对话选项可执行 Kether 脚本，并提供 <code>quest accept</code>、<code>npc data set</code> 等自定义动作。</li>
   </ul>
 </section>
 
@@ -270,12 +269,7 @@
 <span class="key">scoreboard</span>:                  <span class="cmt"># 全息视图（任务计分板）</span>
   <span class="key">enabled</span>: <span class="val">true</span>            <span class="cmt"># 是否打开全息任务追踪（true/false）</span>
   <span class="key">title</span>: <span class="val">"&amp;6&amp;l任务追踪"</span>  <span class="cmt"># 计分板标题（支持 &amp; 颜色）</span>
-  <span class="key">gap-lines</span>: <span class="val">1</span>           <span class="cmt"># 每个任务之间的空行数（0 = 无空格）</span>
-
-<span class="key">quest-book</span>:                 <span class="cmt"># 任务书（/quest 指令打开）</span>
-  <span class="key">gap-lines</span>: <span class="val">1</span>           <span class="cmt"># 任务书中每个任务之间的空行数（0 = 无空格）</span>
-  <span class="key">per-page</span>: <span class="val">3</span>            <span class="cmt"># 任务书每页显示的任务数</span>
-  <span class="key">no-quest</span>: <span class="val">"&amp;c您当前没有接取任务..."</span>  <span class="cmt"># 无任务时第一行显示（顶格，可自行加空格）</span></code></pre>
+  <span class="key">gap-lines</span>: <span class="val">1</span>           <span class="cmt"># 每个任务之间的空行数（0 = 无空格）</span></code></pre>
   <p class="muted">
     计分板每项任务的显示内容请在任务文件（<code>quests/*.yml</code>）里用
     <code>board-title</code> / <code>board-line</code> 完全自定义。
@@ -366,21 +360,9 @@
   </p>
 </section>
 
-<section id="book-nav">
-  <h2>任务书与导航</h2>
-
-  <h3>任务书（/quest）</h3>
-  <p>
-    玩家执行 <code>/quest</code> 打开任务书，展示当前所有已接任务（按接取顺序，与全息视图一致）。
-    每页显示 <code>quest-book.per-page</code> 个任务，可翻页；任务之间按 <code>quest-book.gap-lines</code> 空行分隔。
-  </p>
-  <ul>
-    <li>没有接取任务时，书的第一行显示 <code>quest-book.no-quest</code> 配置的文本（默认 <code>&amp;c您当前没有接取任务...</code>，顶格显示，可自行加空格调整）</li>
-    <li>每个任务标题后带一个<b>「导航」</b>按钮：点击即导航；已导航该任务时按钮变为红色<b>「取消导航」</b>。</li>
-  </ul>
-
-  <h3>导航系统</h3>
-  <p>在任务书里点击「导航」后：</p>
+<section id="navigation">
+  <h2>任务导航</h2>
+  <p>在 SoulCore HUD 中点击任务的「导航」按钮后：</p>
   <ul>
     <li>需要客户端安装支持 <code>soulcore:quest_navigation</code> 通道的 SoulCore Fabric Mod；未安装时不会建立导航</li>
     <li>Mod 在目标位置渲染原版信标材质光柱、圆环和随距离缩放的任务名/距离悬浮标签</li>
@@ -432,18 +414,12 @@
 <span class="cmt"># mob: SkeletonKing</span>
 <span class="cmt"># amount: 10</span>
 
-<span class="key">condition-commands</span>:                 <span class="cmt"># 达成条件时执行，不完成任务或发奖</span>
+<span class="key">condition-commands</span>:                 <span class="cmt"># 每次接取最多执行一次</span>
+  - <span class="val">"message &amp;a你已达成任务条件：&amp;f%quest_name%"</span>
   - <span class="val">"cq data set %player% 5 stage kill_ready"</span>
 
-<span class="key">auto-complete</span>: <span class="val">false</span>           <span class="cmt"># 兼容旧配置但已停用；true 也不会自动完成</span>
 <span class="key">repeatable</span>: <span class="val">false</span>              <span class="cmt"># 是否可重复</span>
-<span class="key">cooldown</span>: <span class="val">3600</span>                 <span class="cmt"># 重复接取冷却（秒）</span>
-
-<span class="key">commands</span>:                        <span class="cmt"># 奖励一：指令（控制台执行）</span>
-  - <span class="val">"give %player% DIAMOND 3"</span>
-<span class="key">kether</span>:                          <span class="cmt"># 奖励二：Kether 完成动作</span>
-  - <span class="val">"message '&amp;a任务完成！'"</span>
-  - <span class="val">"give-item diamond 2"</span></code></pre>
+<span class="key">cooldown</span>: <span class="val">3600</span>                 <span class="cmt"># 重复接取冷却（秒）</span></code></pre>
 
   <h3>类型二：提交物品（submit_item，多种物品）</h3>
 <pre><code><span class="key">quest-id</span>: <span class="val">example_submit</span>
@@ -467,11 +443,12 @@
 <span class="cmt">#     name: "&amp;f铁锭"</span>
 
 <span class="key">condition-commands</span>:
-  - <span class="val">"cq data set %player% 5 stage item_ready"</span>
-
-<span class="key">auto-complete</span>: <span class="val">false</span>          <span class="cmt"># 已停用；由 NPC submit-quest 显式提交</span></code></pre>
+  - <span class="val">"message &amp;a你已达成任务条件：&amp;f%quest_name%"</span></code></pre>
   <p class="muted">
-    提交类任务：进度随背包实时统计；提交时校验并扣除所有目标物品，全部满足才完成任务。
+    <code>condition-commands</code> 未配置 <code>message</code> 时发送默认达成提示；配置 <code>message</code> 后会替换默认提示。
+    <code>message &lt;文本&gt;</code> 发送聊天消息，其他内容作为控制台指令执行。
+    击杀任务在目标达成时执行；物品任务只在 NPC 校验并扣物成功后执行。
+    旧 <code>auto-complete</code>、任务级 <code>commands</code> 和任务级 <code>kether</code> 已删除并忽略。
   </p>
 
   <h3>类型三：描述任务（describe，展示型）</h3>
@@ -565,6 +542,11 @@
         <span class="key">kether</span>:
           - <span class="val">"npc data set stage none"</span>
 
+  <span class="key">done</span>:                       <span class="cmt"># 完成状态分支应放在进行中分支之前</span>
+    <span class="key">papi</span>:
+      - <span class="val">"%customquest_done_example_submit% == true"</span>
+    <span class="key">lines</span>: [<span class="val">"&amp;f感谢你的帮助！"</span>]
+
   <span class="key">kill_ready</span>:
     <span class="key">data</span>: <span class="val">stage</span>
     <span class="key">data-value</span>: <span class="val">kill_ready</span>
@@ -574,7 +556,20 @@
       <span class="key">submit</span>:
         <span class="key">text</span>: <span class="val">"&amp;a&amp;l[提交击杀任务]"</span>
         <span class="key">submit-quest</span>: <span class="val">example_kill</span>
-        <span class="key">submit-data</span>: <span class="val">"stage=done"</span>
+
+  <span class="key">item_collecting</span>:
+    <span class="key">data</span>: <span class="val">stage</span>
+    <span class="key">data-value</span>: <span class="val">item_collecting</span>
+    <span class="key">lines</span>: [<span class="val">"&amp;f把要求的物品放在主背包后交给我。"</span>]
+    <span class="key">options</span>:
+      <span class="key">submit</span>:
+        <span class="key">text</span>: <span class="val">"&amp;a&amp;l[提交物品]"</span>
+        <span class="key">submit-quest</span>: <span class="val">example_submit</span>
+        <span class="key">submit-items</span>:                 <span class="cmt"># 可选；不写则沿用任务 objectives/items</span>
+          - <span class="key">item</span>: <span class="val">"DIAMOND:5"</span>
+            <span class="key">name</span>: <span class="val">"&amp;b大钻石"</span>
+            <span class="key">item-name</span>: <span class="val">"&amp;b大钻石"</span>
+          - <span class="val">"IRON_INGOT:10"</span>
 
   <span class="key">fallback</span>:
     <span class="key">default</span>: <span class="val">true</span>            <span class="cmt"># 兜底分支（可选）</span>
@@ -591,14 +586,17 @@
    │                                        └─► accept-data: stage=kill_doing
    ├─ condition-commands ───────────────────► stage=kill_ready
    ├─ stage == kill_ready ─► submit-quest: example_kill
-   │                        └─► 成功后 submit-data: stage=done
-   └─ stage == done ───────► 完成对话</code></pre>
+   │                        └─► 成功后仅更新任务完成状态
+   └─ done PAPI 条件 ─────► 完成对话</code></pre>
 
   <ul>
     <li>SoulCore 对话 UI 与聊天回退共用绑定玩家的一次性会话；执行时会再次校验分支条件、NPC 状态和交互距离；</li>
     <li><code>accept-quest</code> 接取任务<b>不校验前置条件</b>，接取成功后才写入 <code>accept-data</code> 的变量；
       若选项还配置了 <code>kether</code>，会在接取任务之后执行；</li>
-    <li><code>submit-quest</code> 只在进度足够时成功；物品任务会原子扣物，成功后才写入 <code>submit-data</code> 并继续选项 Kether；</li>
+    <li><code>submit-quest</code> 只在进度足够时成功；物品任务会原子扣物并列出全部缺少项，成功后完成任务但不修改 NPC data；</li>
+    <li><code>submit-items</code> 必须与 <code>submit-quest</code> 同时使用，仅支持 <code>submit_item</code>；它覆盖该按钮实际扣除清单，
+      未配置时沿用任务目标。任务原目标仍负责进度/HUD，清单相同时也只扣一次；</li>
+    <li>任一物品不足时零扣除、零完成；先提示“没有达到任务要求”，再按配置顺序列出全部缺少物品及数量；</li>
     <li>选项 Kether 执行时注入变量：<code>@NpcId</code>（当前 NPC id）、<code>@BranchId</code>、<code>@Option</code>、<code>@Player</code>；</li>
     <li><b>NPC data 为玩家级数据</b>：每个玩家在该 NPC 上有独立 data 值（持久化保存），不同玩家处于不同对话分支；
       管理指令需指定玩家：<code>/cq data set &lt;玩家&gt; 5 stage none</code>；</li>
@@ -608,13 +606,13 @@
 
 <section id="kether">
   <h2>自定义 Kether 动作</h2>
-  <p>在任意 Kether 脚本位置（对话选项、任务 <code>kether</code> 奖励）均可用：</p>
+  <p>在 NPC 对话选项的 Kether 脚本中可用：</p>
   <table>
     <tr><th>动作</th><th>说明</th></tr>
     <tr><td><code>quest accept &lt;任务ID&gt; [data &lt;key&gt; &lt;value&gt;]</code></td><td>接取任务（不校验前置条件）；可选在成功后设置当前玩家在该 NPC 上的 data 变量</td></tr>
     <tr><td><code>quest abandon &lt;任务ID&gt;</code></td><td>放弃任务</td></tr>
-    <tr><td><code>quest submit &lt;任务ID&gt;</code></td><td>提交进度（足够则完成并发奖）</td></tr>
-    <tr><td><code>quest complete &lt;任务ID&gt;</code></td><td>强制完成并发奖（描述任务无效，仅可用指令完成）</td></tr>
+    <tr><td><code>quest submit &lt;任务ID&gt;</code></td><td>提交进度（足够则完成）</td></tr>
+    <tr><td><code>quest complete &lt;任务ID&gt;</code></td><td>强制完成（描述任务无效，仅可用指令完成）</td></tr>
     <tr><td><code>quest progress &lt;任务ID&gt;</code></td><td>返回当前进度（数值）</td></tr>
     <tr><td><code>quest has &lt;任务ID&gt;</code> / <code>quest done &lt;任务ID&gt;</code></td><td>是否已接取 / 已完成（布尔）</td></tr>
     <tr><td><code>dialogue open [npcId]</code></td><td>打开 NPC 对话（缺省用当前 <code>@NpcId</code>）</td></tr>
@@ -635,10 +633,9 @@
     <tr><td><code>/cq help</code></td><td>所有人</td><td>查看帮助</td></tr>
     <tr><td><code>/cq list</code></td><td>customquest.admin</td><td>列出所有任务</td></tr>
     <tr><td><code>/cq reload</code></td><td>customquest.admin</td><td>重载任务、对话与全局配置</td></tr>
-    <tr><td><code>/quest</code></td><td>所有人</td><td>打开任务书（查看已接任务、点击导航、翻页）</td></tr>
     <tr><td><code>/cq quest accept &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>强制接取任务</td></tr>
     <tr><td><code>/cq quest abandon &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>放弃任务</td></tr>
-    <tr><td><code>/cq quest complete &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>强制完成任务并发奖（描述任务仅能通过此指令完成）</td></tr>
+    <tr><td><code>/cq quest complete &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>强制完成任务（描述任务仅能通过此指令完成）</td></tr>
     <tr><td><code>/cq quest nav set &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>设置任务导航位置为你的当前位置（写回任务文件）</td></tr>
     <tr><td><code>/cq quest nav remove &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>移除任务导航位置</td></tr>
     <tr><td><code>/cq data set &lt;玩家&gt; &lt;npcId&gt; &lt;key&gt; &lt;value&gt;</code></td><td>customquest.admin</td><td>设置指定玩家在该 NPC 上的 data 变量</td></tr>

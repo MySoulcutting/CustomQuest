@@ -34,6 +34,31 @@ default-data:
 # ----------------------------------------------------------------
 branches:
 
+  # 完成分支使用任务状态判断，不在任务完成时修改 NPC data。
+  all_done:
+    papi:
+      - "%customquest_done_example_submit% == true"
+    lines:
+      - "&f感谢你的帮助！"
+    options:
+      ok:
+        text: "&7&l[离开] &7再见"
+        kether: []
+
+  # 击杀任务完成后提供下一项任务；分支优先于仍为 kill_ready 的 data。
+  kill_done_offer:
+    papi:
+      - "%customquest_done_example_kill% == true"
+      - "%customquest_done_example_submit% == false"
+      - "%customquest_has_example_submit% == false"
+    lines:
+      - "&f还需要一些矿物，你愿意帮我收集吗？"
+    options:
+      accept:
+        text: "&a&l[接受收集任务]"
+        accept-quest: example_submit
+        accept-data: "stage=item_collecting"
+
   # ============ 分支一：初始状态（stage == none 时显示） ============
   initial:
     # NPC data 条件（写法一：key + data-value）
@@ -101,19 +126,6 @@ branches:
         text: "&a&l[提交击杀任务]"
         hover: "&7再次校验进度后完成任务"
         submit-quest: example_kill
-        submit-data: "stage=item_offer"
-
-  # ============ 分支三：领取物品收集任务 ============
-  item_offer:
-    data: stage
-    data-value: item_offer
-    lines:
-      - "&f还需要一些矿物，你愿意帮我收集吗？"
-    options:
-      accept:
-        text: "&a&l[接受收集任务]"
-        accept-quest: example_submit
-        accept-data: "stage=item_collecting"
 
   item_collecting:
     data: stage
@@ -125,30 +137,12 @@ branches:
         text: "&e&l[检查并提交物品]"
         hover: "&7物品足够时一次性扣除并完成任务"
         submit-quest: example_submit
-        submit-data: "stage=done"
-
-  # 集齐物品后 condition-commands 会切换到该分支；点击时仍会实时复查背包。
-  item_ready:
-    data: stage
-    data-value: item_ready
-    lines:
-      - "&a物品已经集齐，现在交给我吧。"
-    options:
-      submit:
-        text: "&a&l[提交物品]"
-        submit-quest: example_submit
-        submit-data: "stage=done"
-
-  # ============ 最终完成 ============
-  done:
-    data: stage
-    data-value: done
-    lines:
-      - "&f感谢你的帮助，这是你的报酬！"
-    options:
-      ok:
-        text: "&7&l[离开] &7再见"
-        kether: []
+        # 可选：覆盖这个按钮实际检测并扣除的物品；不写则沿用任务 objectives。
+        submit-items:
+          - item: "DIAMOND:5"
+            name: "&b大钻石"
+            item-name: "&b大钻石"
+          - "IRON_INGOT:10"
 
   # ============ 兜底分支：以上分支都不满足时显示（可选） ============
   fallback:

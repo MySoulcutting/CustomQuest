@@ -1,7 +1,6 @@
 package com.cj.customquest.quest;
 
 import com.cj.customquest.board.QuestBoard;
-import com.cj.customquest.kether.KetherRunner;
 import com.cj.customquest.navigation.NavigationManager;
 import com.cj.customquest.util.Messages;
 import com.cj.customquest.util.TextUtil;
@@ -14,7 +13,6 @@ import taboolib.platform.BukkitPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -24,7 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 任务管理器：任务加载、接取/放弃/提交/完成、多目标进度统计与奖励发放。
+ * 任务管理器：任务加载、接取/放弃/提交/完成与多目标进度统计。
  */
 public final class QuestManager {
 
@@ -267,26 +265,49 @@ public final class QuestManager {
 
     /** 提交任务（进度足够则完成；描述任务只能通过指令完成） */
     public boolean submitQuest(Player player, Quest quest) {
+        return submitQuest(player, quest, List.of());
+    }
+
+    /**
+     * 从 NPC 对话提交任务。submitItems 非空时覆盖本次实际扣除清单，
+     * 但任务原 objectives 仍必须先满足，且不会与覆盖清单重复扣除。
+     */
+    public boolean submitQuest(Player player, Quest quest, List<QuestObjective> submitItems) {
         if (quest.getType() == QuestType.DESCRIBE) {
             Messages.sendTo(player, "quest-command-only");
             return false;
         }
-        return completeQuest(player, quest, false);
+        List<QuestObjective> itemOverride = submitItems == null ? List.of() : List.copyOf(submitItems);
+        if (!itemOverride.isEmpty() && quest.getType() != QuestType.SUBMIT_ITEM) {
+            Bukkit.getLogger().warning("[CustomQuest] 任务 " + quest.getId()
+                    + " 不是 submit_item，不能使用 NPC submit-items 覆盖清单。");
+            Messages.sendTo(player, "dialogue-submit-items-invalid");
+            return false;
+        }
+        return completeQuest(player, quest, false, itemOverride);
     }
 
     // ---------------- 完成 ----------------
 
     /**
-     * 完成任务并发放奖励。
+     * 完成任务状态。
      *
      * @param force 强制完成（跳过进度校验，仍会扣除提交物品）
      */
     public boolean completeQuest(Player player, Quest quest, boolean force) {
+        return completeQuest(player, quest, force, List.of());
+    }
+
+    private boolean completeQuest(Player player, Quest quest, boolean force,
+                                  List<QuestObjective> itemOverride) {
         PlayerQuestData data = storage.get(player);
+        QuestProgress acceptedProgress = data.getAccepted().get(quest.getId());
         ItemStack[] itemContents = quest.getType() == QuestType.SUBMIT_ITEM
                 ? player.getInventory().getStorageContents() : null;
-        ItemRemovalPlan itemPlan = itemContents == null
-                ? null : planItemRemoval(itemContents, quest.getObjectives());
+        SubmissionPlans submissionPlans = itemContents == null ? null
+                : planSubmission(snapshotInventory(itemContents), quest.getObjectives(), itemOverride);
+        ItemRemovalPlan objectivePlan = submissionPlans == null ? null : submissionPlans.objectivePlan();
+        ItemRemovalPlan itemPlan = submissionPlans == null ? null : submissionPlans.deductionPlan();
         if (!force) {
             if (quest.getType() == QuestType.DESCRIBE) {
                 Messages.sendTo(player, "quest-command-only");
@@ -296,8 +317,10 @@ public final class QuestManager {
                 Messages.sendTo(player, "quest-not-accepted");
                 return false;
             }
-            if (itemPlan != null && !itemPlan.successful()) {
-                sendItemsNotEnough(player, itemPlan);
+            // 原 objectives 与 NPC 覆盖清单必须同时满足；统一列出两份清单的全部缺口。
+            List<MissingItem> missingItems = combinedMissingItems(objectivePlan, itemPlan);
+            if (!missingItems.isEmpty()) {
+                sendItemsNotEnough(player, missingItems);
                 return false;
             }
             if (itemPlan == null && !isProgressComplete(player, quest)) {
@@ -309,7 +332,7 @@ public final class QuestManager {
         // 即使是管理员强制完成，提交物品任务也必须实际交出配置要求的物品。
         if (itemPlan != null) {
             if (!itemPlan.successful()) {
-                sendItemsNotEnough(player, itemPlan);
+                sendItemsNotEnough(player, itemPlan.missingItems());
                 return false;
             }
             applyItemRemoval(itemContents, itemPlan);
@@ -320,23 +343,16 @@ public final class QuestManager {
         NavigationManager.getInstance().stopIfNavigating(player, quest.getId());
         QuestBoard.getInstance().update(player);
 
+        // 物品任务只在 NPC 成功校验并扣物后触发一次达成动作。
+        if (!force && quest.getType() == QuestType.SUBMIT_ITEM && acceptedProgress != null) {
+            triggerConditionReached(player, quest, acceptedProgress);
+        }
+
         Messages.sendTo(player, "quest-completed", Map.of("name", TextUtil.parse(player, quest.getName())));
         if (quest.isRepeatable()) {
             Messages.sendTo(player, "quest-repeatable");
         }
 
-        // 奖励：指令（控制台执行，支持 %player% 与 PAPI）
-        for (String command : quest.getCommands()) {
-            String executed = TextUtil.papi(player, command.replace("%player%", player.getName()));
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), executed);
-        }
-        // 奖励/完成动作：Kether
-        if (!quest.getKether().isEmpty()) {
-            Map<String, Object> vars = new HashMap<>();
-            vars.put("@QuestId", quest.getId());
-            vars.put("@Player", player);
-            KetherRunner.run(player, quest.getKether(), vars);
-        }
         return true;
     }
 
@@ -375,8 +391,8 @@ public final class QuestManager {
 
     // ---------------- 条件达成 ----------------
 
-    /** 背包事件使用：仅在玩家有提交物品任务时安排下一 tick 检查。 */
-    public void queueInventoryConditionCheck(Player player) {
+    /** 背包事件使用：仅在玩家有提交物品任务时安排下一 tick 追踪刷新。 */
+    public void queueInventoryRefresh(Player player) {
         for (String questId : storage.get(player).getAccepted().keySet()) {
             Quest quest = getQuest(questId);
             if (quest != null && quest.getType() == QuestType.SUBMIT_ITEM) {
@@ -402,43 +418,47 @@ public final class QuestManager {
         });
     }
 
-    /** 校准玩家所有已接任务的条件状态；可供上线、重载和低频兜底刷新调用。 */
+    /** 校准玩家已接击杀任务的条件状态；物品任务只允许在 NPC 提交时达成。 */
     public void checkConditionStates(Player player) {
         for (Map.Entry<String, QuestProgress> entry
                 : new ArrayList<>(storage.get(player).getAccepted().entrySet())) {
             Quest quest = getQuest(entry.getKey());
-            if (quest != null && quest.getType() != QuestType.DESCRIBE) {
+            if (quest != null && quest.getType() == QuestType.KILL_MOB) {
                 updateConditionState(player, quest, entry.getValue());
             }
         }
     }
 
-    /**
-     * 五秒低频兜底：仅校准持有提交物品任务的在线玩家，覆盖不会触发背包事件的 API 修改。
-     */
-    public void refreshOnlineItemConditions() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            for (String questId : storage.get(player).getAccepted().keySet()) {
-                Quest quest = getQuest(questId);
-                if (quest != null && quest.getType() == QuestType.SUBMIT_ITEM) {
-                    checkConditionStates(player);
-                    break;
-                }
-            }
-        }
-    }
-
     private void updateConditionState(Player player, Quest quest, QuestProgress progress) {
-        if (!progress.updateConditionMet(isProgressComplete(player, quest))) {
+        if (!isProgressComplete(player, quest)) {
             return;
         }
-        Messages.sendTo(player, "quest-condition-met",
-                Map.of("name", TextUtil.parse(player, quest.getName())));
-        for (String command : quest.getConditionCommands()) {
-            String executed = TextUtil.papi(player, command
+        triggerConditionReached(player, quest, progress);
+    }
+
+    private void triggerConditionReached(Player player, Quest quest, QuestProgress progress) {
+        if (!progress.updateConditionMet(true)) {
+            return;
+        }
+        boolean hasCustomMessage = quest.getConditionCommands().stream()
+                .map(String::trim)
+                .anyMatch(action -> action.regionMatches(true, 0, "message ", 0, 8));
+        if (!hasCustomMessage) {
+            Messages.sendTo(player, "quest-condition-met",
+                    Map.of("name", TextUtil.parse(player, quest.getName())));
+        }
+        for (String action : quest.getConditionCommands()) {
+            String expanded = action
                     .replace("%player%", player.getName())
-                    .replace("%quest%", quest.getId()));
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), executed);
+                    .replace("%quest_name%", quest.getName())
+                    .replace("%quest_id%", quest.getId())
+                    .replace("%quest%", quest.getId());
+            String trimmed = expanded.trim();
+            if (trimmed.regionMatches(true, 0, "message ", 0, 8)) {
+                player.sendMessage(TextUtil.parse(player, trimmed.substring(8)));
+            } else if (!trimmed.isEmpty()) {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), TextUtil.papi(player, trimmed));
+            }
         }
     }
 
@@ -462,6 +482,10 @@ public final class QuestManager {
      * 防止通配目标抢走只有精确目标能使用的物品。
      */
     private static ItemRemovalPlan planItemRemoval(ItemStack[] contents, List<QuestObjective> objectives) {
+        return planItemRemoval(snapshotInventory(contents), objectives);
+    }
+
+    private static InventorySlot[] snapshotInventory(ItemStack[] contents) {
         InventorySlot[] snapshot = new InventorySlot[contents.length];
         for (int i = 0; i < contents.length; i++) {
             ItemStack item = contents[i];
@@ -472,7 +496,16 @@ public final class QuestManager {
                     ? item.getItemMeta().getDisplayName() : null;
             snapshot[i] = new InventorySlot(item.getType(), displayName, item.getAmount());
         }
-        return planItemRemoval(snapshot, objectives);
+        return snapshot;
+    }
+
+    /** 同一背包快照上同时规划任务原目标与 NPC 实际扣除清单。 */
+    static SubmissionPlans planSubmission(InventorySlot[] contents, List<QuestObjective> objectives,
+                                          List<QuestObjective> itemOverride) {
+        ItemRemovalPlan objectivePlan = planItemRemoval(contents, objectives);
+        ItemRemovalPlan deductionPlan = itemOverride == null || itemOverride.isEmpty()
+                ? objectivePlan : planItemRemoval(contents, itemOverride);
+        return new SubmissionPlans(objectivePlan, deductionPlan);
     }
 
     static ItemRemovalPlan planItemRemoval(InventorySlot[] contents, List<QuestObjective> objectives) {
@@ -502,13 +535,15 @@ public final class QuestManager {
             }
         }
 
+        List<MissingItem> missingItems = new ArrayList<>();
         for (int i = 0; i < objectives.size(); i++) {
             QuestObjective objective = objectives.get(i);
             if (allocated[i] < objective.getAmount()) {
-                return new ItemRemovalPlan(amounts, allocated, objective, allocated[i]);
+                missingItems.add(new MissingItem(
+                        objective, allocated[i], objective.getAmount() - allocated[i]));
             }
         }
-        return new ItemRemovalPlan(amounts, allocated, null, 0);
+        return new ItemRemovalPlan(amounts, allocated, List.copyOf(missingItems));
     }
 
     /** 模拟全部成功后才把扣除结果写回真实背包。 */
@@ -520,18 +555,79 @@ public final class QuestManager {
         }
     }
 
-    private static void sendItemsNotEnough(Player player, ItemRemovalPlan plan) {
-        QuestObjective missing = plan.missingObjective();
-        Messages.sendTo(player, "items-not-enough", Map.of(
-                "item", TextUtil.parse(player, missing.getDisplay()),
-                "need", missing.getAmount(),
-                "have", plan.availableForMissing()));
+    static List<MissingItem> combinedMissingItems(ItemRemovalPlan objectivePlan,
+                                                  ItemRemovalPlan deductionPlan) {
+        if (objectivePlan == null) {
+            return deductionPlan == null ? List.of() : deductionPlan.missingItems();
+        }
+        if (deductionPlan == null || deductionPlan == objectivePlan) {
+            return objectivePlan.missingItems();
+        }
+
+        Map<RequirementKey, List<MissingItem>> objectiveGroups = groupMissingItems(objectivePlan.missingItems());
+        Map<RequirementKey, List<MissingItem>> deductionGroups = groupMissingItems(deductionPlan.missingItems());
+        List<RequirementKey> order = new ArrayList<>(objectiveGroups.keySet());
+        for (RequirementKey key : deductionGroups.keySet()) {
+            if (!objectiveGroups.containsKey(key)) {
+                order.add(key);
+            }
+        }
+
+        List<MissingItem> combined = new ArrayList<>();
+        for (RequirementKey key : order) {
+            List<MissingItem> objectiveMissing = objectiveGroups.getOrDefault(key, List.of());
+            List<MissingItem> deductionMissing = deductionGroups.getOrDefault(key, List.of());
+            int count = Math.max(objectiveMissing.size(), deductionMissing.size());
+            for (int index = 0; index < count; index++) {
+                int objectiveIndex = index - (count - objectiveMissing.size());
+                int deductionIndex = index - (count - deductionMissing.size());
+                MissingItem first = objectiveIndex >= 0 ? objectiveMissing.get(objectiveIndex) : null;
+                MissingItem second = deductionIndex >= 0 ? deductionMissing.get(deductionIndex) : null;
+                combined.add(first == null || second != null && second.missing() > first.missing()
+                        ? second : first);
+            }
+        }
+        return List.copyOf(combined);
+    }
+
+    private static Map<RequirementKey, List<MissingItem>> groupMissingItems(List<MissingItem> missingItems) {
+        Map<RequirementKey, List<MissingItem>> groups = new LinkedHashMap<>();
+        for (MissingItem missing : missingItems) {
+            QuestObjective objective = missing.objective();
+            RequirementKey key = new RequirementKey(
+                    objective.getMaterial(), objective.getAmount(), objective.getItemName());
+            groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(missing);
+        }
+        return groups;
+    }
+
+    private static void sendItemsNotEnough(Player player, List<MissingItem> missingItems) {
+        Messages.sendTo(player, "quest-requirements-not-met");
+        for (MissingItem missing : missingItems) {
+            Messages.sendTo(player, "items-not-enough", Map.of(
+                    "item", TextUtil.parse(player, missing.objective().getDisplay()),
+                    "need", missing.objective().getAmount(),
+                    "have", missing.have(),
+                    "missing", missing.missing()));
+        }
     }
 
     static record ItemRemovalPlan(int[] remainingAmounts, int[] allocatedByObjective,
-                                  QuestObjective missingObjective, int availableForMissing) {
+                                  List<MissingItem> missingItems) {
         boolean successful() {
-            return missingObjective == null;
+            return missingItems.isEmpty();
+        }
+    }
+
+    static record MissingItem(QuestObjective objective, int have, int missing) {
+    }
+
+    private record RequirementKey(org.bukkit.Material material, int amount, String itemName) {
+    }
+
+    static record SubmissionPlans(ItemRemovalPlan objectivePlan, ItemRemovalPlan deductionPlan) {
+        boolean successful() {
+            return objectivePlan.successful() && deductionPlan.successful();
         }
     }
 

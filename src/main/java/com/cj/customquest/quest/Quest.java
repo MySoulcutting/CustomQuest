@@ -33,12 +33,8 @@ public final class Quest {
     private final QuestType type;
     /** 目标列表（至少 1 个） */
     private final List<QuestObjective> objectives;
-    /** 奖励：指令列表（以控制台执行，支持 %player% 与 PAPI） */
-    private final List<String> commands;
     /** 达成全部任务条件时执行一次的控制台指令（不完成任务） */
     private final List<String> conditionCommands;
-    /** 奖励/完成动作：Kether 脚本 */
-    private final List<String> kether;
     /** 是否可重复 */
     private final boolean repeatable;
     /** 可重复任务的冷却时间（秒） */
@@ -52,7 +48,7 @@ public final class Quest {
 
     private Quest(String id, String name, List<String> description, QuestType type,
                   List<QuestObjective> objectives,
-                  List<String> commands, List<String> conditionCommands, List<String> kether,
+                  List<String> conditionCommands,
                   boolean repeatable, long cooldown, String boardTitle,
                   List<String> boardLines, Location navigateLocation) {
         this.id = id;
@@ -60,9 +56,7 @@ public final class Quest {
         this.description = description;
         this.type = type;
         this.objectives = objectives;
-        this.commands = commands;
         this.conditionCommands = conditionCommands;
-        this.kether = kether;
         this.repeatable = repeatable;
         this.cooldown = cooldown;
         this.boardTitle = boardTitle;
@@ -90,24 +84,8 @@ public final class Quest {
         return objectives;
     }
 
-    public List<String> getCommands() {
-        return commands;
-    }
-
     public List<String> getConditionCommands() {
         return conditionCommands;
-    }
-
-    public List<String> getKether() {
-        return kether;
-    }
-
-    /**
-     * @deprecated 自动完成已停用；任务条件达成后必须由指令或 NPC 对话显式提交。
-     */
-    @Deprecated(forRemoval = true)
-    public boolean isAutoComplete() {
-        return false;
     }
 
     public boolean isRepeatable() {
@@ -302,18 +280,21 @@ public final class Quest {
             }
         }
 
-        List<String> commands = stringList(section, "commands");
         List<String> conditionCommands = stringList(section, "condition-commands");
-        List<String> kether = stringList(section, "kether");
-
-        if (boolOf(section, "auto-complete", false)) {
-            errors.add("任务 " + id + ": auto-complete 已停用；达到条件后只提示并执行 condition-commands，任务必须由指令或 NPC 对话提交");
+        List<String> removedFields = new ArrayList<>();
+        for (String key : List.of("auto-complete", "commands", "kether")) {
+            if (section.contains(key)) {
+                removedFields.add(key);
+            }
+        }
+        if (!removedFields.isEmpty()) {
+            errors.add("任务 " + id + ": 已删除并忽略配置项 " + String.join(", ", removedFields));
         }
         boolean repeatable = boolOf(section, "repeatable", false);
         long cooldown = section.contains("cooldown") ? section.getLong("cooldown") : 0L;
 
         return new Quest(id, name, description, type, objectives,
-                commands, conditionCommands, kether, repeatable, cooldown, boardTitle, boardLines,
+                conditionCommands, repeatable, cooldown, boardTitle, boardLines,
                 navigateLocation);
     }
 }
