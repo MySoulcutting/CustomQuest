@@ -70,7 +70,8 @@ plugins/CustomQuest/
 ├── messages.yml          # 消息文本
 ├── quests/               # 任务配置（一个任务一个 yml）
 │   ├── example_kill.yml
-│   └── example_submit.yml
+│   ├── example_submit.yml
+│   └── example_describe.yml
 ├── dialogues/            # NPC 对话配置（一个 NPC 一个或多个 yml）
 │   └── example_npc.yml
 ├── data.db               # SQLite 玩家任务数据（自动生成，勿手动修改）
@@ -280,7 +281,7 @@ objectives:
 navigate: "world,100,64,200"   # 世界名,x,y,z
 ```
 
-也可用指令配置（写回任务文件，导航位置设为执行者当前位置）：
+玩家可用 `/cq nav <任务ID>` 开始导航、`/cq nav cancel` 取消。管理员也可用以下指令写回任务位置（设为执行者当前位置）：
 
 ```bash
 /cq quest nav set <任务ID>
@@ -302,6 +303,21 @@ default-data:
   stage: none
 
 branches:                     # 从上到下找第一个「条件全部满足」的分支显示
+  all_done:                   # PAPI 完成分支必须放在 data 分支之前
+    papi:
+      - "%customquest_done_example_submit% == true"
+    lines: ["&f感谢你的帮助！"]
+  kill_done_offer:            # 击杀完成后提供物品任务
+    papi:
+      - "%customquest_done_example_kill% == true"
+      - "%customquest_done_example_submit% == false"
+      - "%customquest_has_example_submit% == false"
+    lines: ["&f还需要一些矿物，你愿意帮我收集吗？"]
+    options:
+      accept:
+        text: "&a&l[接受收集任务]"
+        accept-quest: example_submit
+        accept-data: "stage=item_collecting"
   initial:
     data: stage               # NPC data 条件（写法一：key + data-value）
     data-value: none
@@ -336,10 +352,6 @@ branches:                     # 从上到下找第一个「条件全部满足」
       submit:
         text: "&a&l[提交击杀任务]"
         submit-quest: example_kill           # 再次校验击杀进度，成功才完成
-  done:                       # 完成分支应放在进行中分支之前，不修改 NPC data
-    papi:
-      - "%customquest_done_example_submit% == true"
-    lines: ["&f感谢你的帮助！"]
   item_collecting:
     data: stage
     data-value: item_collecting
@@ -350,7 +362,8 @@ branches:                     # 从上到下找第一个「条件全部满足」
         submit-quest: example_submit         # 实时检查主背包，成功后原子扣物并完成
         # 可选：覆盖该按钮实际检测/扣除的清单；不写则沿用任务 objectives/items
         submit-items:
-          - item: "DIAMOND:5"
+          - item: DIAMOND
+            amount: 5
             name: "&b大钻石"                # 物品不足提示中的显示名（可选）
             item-name: "&b大钻石"           # 只匹配该自定义名称（可选）
           - "IRON_INGOT:10"                 # 无自定义名时可用简写
@@ -374,8 +387,8 @@ branches:                     # 从上到下找第一个「条件全部满足」
 - `submit-items` 必须与 `submit-quest` 同时使用，且仅支持 `submit_item` 任务。配置后会覆盖该按钮本次实际扣除清单，
   但任务原 `objectives/items` 仍负责进度、HUD 与达成条件；未配置时保持旧行为。两份清单相同时也只扣一次
 - `submit-items` 支持严格简写 `"MATERIAL:数量"`，或映射写法 `item` + 可选 `amount`、`name`、`item-name`；
-  空列表、未知材料、零数、负数和非数字会使对应对话文件拒绝加载
-- 任一物品不足时不会扣除或完成任务；先提示“没有达到任务要求”，再按配置顺序显示全部缺少物品、已有数量与缺少数量
+  空列表、空气、未知材料、零数、负数和非数字会使对应对话文件拒绝加载
+- 任一物品不足时不会扣除或完成任务；原目标与覆盖清单的缺口按多重集合合并，同规格保留更大实际缺口后全部提示
 - 选项 Kether 执行时注入变量：`@NpcId`、`@BranchId`、`@Option`（兼容旧序号）、`@OptionId`、`@Player`
 - 单次对话最多发送 8 行、6 个选项，总载荷上限 8192 bytes；标题、行、按钮与悬浮文字会保留合法颜色样式并进行严格 UTF-8/长度控制
 - **NPC data 为玩家级数据**：每个玩家在该 NPC 上有独立的 data 值（持久化保存于 SQLite `data.db`），
@@ -390,7 +403,7 @@ branches:                     # 从上到下找第一个「条件全部满足」
 | `quest accept <任务ID> [data <key> <value>]` | 接取任务（不校验前置条件）；可选在成功后设置当前 NPC 的 data 变量 |
 | `quest abandon <任务ID>` | 放弃任务 |
 | `quest submit <任务ID>` | 提交进度（足够则完成） |
-| `quest complete <任务ID>` | 强制完成（描述任务无效，仅可用指令完成） |
+| `quest complete <任务ID>` | 强制完成；提交物品任务仍需交齐物品（描述任务无效） |
 | `quest progress <任务ID>` | 返回当前进度（数值） |
 | `quest has <任务ID>` / `quest done <任务ID>` | 是否已接取 / 已完成（布尔） |
 | `dialogue open [npcId]` | 打开 NPC 对话（缺省用当前 `@NpcId`） |
@@ -405,11 +418,13 @@ branches:                     # 从上到下找第一个「条件全部满足」
 | 指令 | 权限 | 说明 |
 | --- | --- | --- |
 | `/cq help` | 所有人 | 查看帮助 |
-| `/cq list` | customquest.admin | 列出所有任务 |
+| `/cq list` | 当前实际所有人 | 列出所有任务；权限检查存在已知缺口 |
 | `/cq reload` | customquest.admin | 重载任务、对话与全局配置 |
+| `/cq nav <任务ID>` | 所有人 | 开始导航已接取任务 |
+| `/cq nav cancel` | 所有人 | 取消当前导航 |
 | `/cq quest accept <玩家> <任务ID>` | customquest.admin | 强制接取任务 |
 | `/cq quest abandon <玩家> <任务ID>` | customquest.admin | 放弃任务 |
-| `/cq quest complete <玩家> <任务ID>` | customquest.admin | 强制完成任务（描述任务仅能通过此指令完成） |
+| `/cq quest complete <玩家> <任务ID>` | customquest.admin | 强制完成；提交物品任务仍需交齐物品 |
 | `/cq quest nav set <任务ID>` | customquest.admin | 设置任务导航位置为你的当前位置（写回任务文件） |
 | `/cq quest nav remove <任务ID>` | customquest.admin | 移除任务导航位置 |
 | `/cq data set <玩家> <npcId> <key> <value>` | customquest.admin | 设置指定玩家在该 NPC 上的 data 变量 |
@@ -427,7 +442,6 @@ branches:                     # 从上到下找第一个「条件全部满足」
 ## 已知限制
 
 - 当前实现按普通 Paper 调度模型开发；虽然生成的插件描述可能带有 `folia-supported`，但尚未完成 Folia 线程模型适配与验证。
-- 任务计分板会替换玩家当前 Scoreboard，关闭或清理时不会恢复其他插件之前设置的计分板。
 - SQLite 玩家数据的载入、退出保存和定时保存运行在主线程；大量同时在线玩家需要额外进行性能压测。
 - 导航只支持静态坐标、同世界单目标，不提供动态 NPC/实体追踪或路径规划。
 - “改进透明度/Fabulous”下，SoulCore 标签隔着水或玻璃时可能受到最终透明合成的轻微染色。
@@ -451,4 +465,4 @@ branches:                     # 从上到下找第一个「条件全部满足」
 
 ## 网页文档
 
-同目录的 `wiki.html` 可直接用浏览器打开；它是静态镜像，若内容与当前源码或 README 不一致，以源码和 README 为准。
+仓库内的 [wiki.html](wiki.html) 可直接用浏览器打开；它是静态镜像，若内容与当前源码或 README 不一致，以源码和 README 为准。
