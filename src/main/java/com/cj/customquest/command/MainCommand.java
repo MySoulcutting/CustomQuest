@@ -3,6 +3,7 @@ package com.cj.customquest.command;
 import com.cj.customquest.CustomQuestPlugin;
 import com.cj.customquest.book.QuestBook;
 import com.cj.customquest.dialogue.DialogueManager;
+import com.cj.customquest.dialogue.DialoguePayload;
 import com.cj.customquest.hook.CitizensHook;
 import com.cj.customquest.navigation.NavigationManager;
 import com.cj.customquest.quest.Quest;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -302,15 +304,18 @@ public final class MainCommand {
         if (!(sender instanceof Player player)) {
             return;
         }
-        if (args.length < 4) {
+        if (args.length < 3) {
             return;
         }
-        int npcId = parseInt(args[1], -1);
-        int optionIndex = parseInt(args[3], -1);
-        if (npcId < 0 || optionIndex < 0) {
+        final UUID sessionId;
+        final String optionId;
+        try {
+            sessionId = UUID.fromString(args[1]);
+            optionId = DialoguePayload.decodeCommandOptionId(args[2]);
+        } catch (IllegalArgumentException ignored) {
             return;
         }
-        DialogueManager.getInstance().onOptionClick(player, npcId, args[2], optionIndex);
+        DialogueManager.getInstance().onOptionClick(player, sessionId, optionId);
     }
 
     // ---------------- 其他 ----------------

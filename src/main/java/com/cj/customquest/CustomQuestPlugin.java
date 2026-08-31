@@ -4,6 +4,7 @@ import com.cj.customquest.board.QuestBoard;
 import com.cj.customquest.command.MainCommand;
 import com.cj.customquest.config.Settings;
 import com.cj.customquest.dialogue.DialogueManager;
+import com.cj.customquest.dialogue.DialoguePayload;
 import com.cj.customquest.expansion.QuestExpansion;
 import com.cj.customquest.hook.CitizensHook;
 import com.cj.customquest.hook.MythicMobsHook;
@@ -44,6 +45,7 @@ public class CustomQuestPlugin extends Plugin {
     private static CustomQuestPlugin instance;
     private QuestExpansion expansion;
     private BukkitTask boardTask;
+    private BukkitTask conditionTask;
     private BukkitTask autosaveTask;
 
     public static CustomQuestPlugin getInstance() {
@@ -70,6 +72,8 @@ public class CustomQuestPlugin extends Plugin {
         NavigationPayload.register();
         // SoulCore Fabric 客户端任务追踪通道
         QuestTrackingPayload.register();
+        // SoulCore Fabric 客户端任务对话通道
+        DialoguePayload.register();
 
         // 挂钩
         PapiHook.init();
@@ -111,6 +115,9 @@ public class CustomQuestPlugin extends Plugin {
         // 定时保存玩家数据
         startAutosaveTask();
 
+        // 独立于任务板的物品条件低频兜底（覆盖插件直接修改背包、/give 等无事件路径）
+        startConditionTask();
+
         // 任务追踪低频兜底刷新（背包变化由监听器即时刷新）
         startBoardTask();
 
@@ -118,6 +125,7 @@ public class CustomQuestPlugin extends Plugin {
         for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
             QuestManager.getInstance().getStorage().load(player);
             board.update(player);
+            QuestManager.getInstance().queueConditionCheck(player);
         }
 
         Bukkit.getLogger().info("[CustomQuest] 插件已启用。");
@@ -130,6 +138,9 @@ public class CustomQuestPlugin extends Plugin {
         }
         if (boardTask != null) {
             boardTask.cancel();
+        }
+        if (conditionTask != null) {
+            conditionTask.cancel();
         }
         try {
             NavigationManager.getInstance().shutdown();
@@ -148,6 +159,15 @@ public class CustomQuestPlugin extends Plugin {
             } catch (Throwable e) {
                 Bukkit.getLogger().warning("[CustomQuest] 卸载时注销任务追踪通道失败: " + e.getMessage());
             }
+        }
+        try {
+            if (DialogueManager.getInstance() != null) {
+                DialogueManager.getInstance().shutdown();
+            }
+        } catch (Throwable e) {
+            Bukkit.getLogger().warning("[CustomQuest] 卸载时清理任务对话失败: " + e.getMessage());
+        } finally {
+            DialoguePayload.unregister();
         }
         NavigationPayload.unregister();
         QuestStorage storage = QuestManager.getInstance() == null
@@ -180,6 +200,10 @@ public class CustomQuestPlugin extends Plugin {
         if (Settings.boardEnabled) {
             QuestBoard.getInstance().updateAll();
         }
+        // 任务条件可能因配置重载而变化；重新校准在线玩家并触发新的达成状态。
+        for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+            QuestManager.getInstance().queueConditionCheck(player);
+        }
         // 重启任务追踪定时刷新（开关状态可能在本次重载中变化）
         getInstance().startBoardTask();
         // 自动保存间隔也可能在本次重载中变化
@@ -206,6 +230,14 @@ public class CustomQuestPlugin extends Plugin {
         long period = 20L * Settings.autosaveSeconds;
         autosaveTask = Bukkit.getScheduler().runTaskTimer(BukkitPlugin.getInstance(),
                 () -> QuestManager.getInstance().getStorage().saveAll(), period, period);
+    }
+
+    private void startConditionTask() {
+        if (conditionTask != null) {
+            conditionTask.cancel();
+        }
+        conditionTask = Bukkit.getScheduler().runTaskTimer(BukkitPlugin.getInstance(),
+                () -> QuestManager.getInstance().refreshOnlineItemConditions(), 100L, 100L);
     }
 
     private void registerListener(org.bukkit.event.Listener listener) {

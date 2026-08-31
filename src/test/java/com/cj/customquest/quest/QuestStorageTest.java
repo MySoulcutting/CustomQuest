@@ -23,6 +23,7 @@ class QuestStorageTest {
         PlayerQuestData source = new PlayerQuestData();
         QuestProgress progress = new QuestProgress(123456789L);
         progress.setCounter("obj0", 7);
+        progress.updateConditionMet(true);
         source.getAccepted().put("quest.alpha", progress);
         source.getCompleted().put("finished.quest", 987654321L);
         source.npcDataOf(5).put("story.stage", "doing");
@@ -35,6 +36,7 @@ class QuestStorageTest {
             PlayerQuestData loaded = storage.load(uuid);
             assertEquals(123456789L, loaded.getAccepted().get("quest.alpha").getAcceptedAt());
             assertEquals(7, loaded.getAccepted().get("quest.alpha").getCounter("obj0"));
+            assertTrue(loaded.getAccepted().get("quest.alpha").isConditionMet());
             assertEquals(987654321L, loaded.getCompletedAt("finished.quest"));
             assertEquals("doing", loaded.getNpcData().get("5").get("story.stage"));
         }

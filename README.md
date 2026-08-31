@@ -4,7 +4,7 @@ CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的�
 提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
-当前项目版本为 **1.6.3**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
+当前项目版本为 **1.6.4**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
 
 ## 功能总览
 
@@ -12,8 +12,13 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 - ✅ **NPC data 分支对话（玩家级数据）**：对话分支支持 `data=` / `data-value=`（或列表形式）与 PAPI 变量条件；
   当 NPC 的 data 值不同时显示不同对话，用于接取任务、推进分支剧情。
   **data 变量按玩家独立存储**：每个玩家在同一 NPC 上有自己的 data 值，不同玩家可处于不同对话分支，互不影响
+- ✅ **SoulCore 交互式任务对话**：支持对应通道的客户端使用带按钮的任务对话界面；其他客户端自动回退到可点击聊天选项
 - ✅ **对话内接取任务指令**：对话选项直接配置 `accept-quest: <任务ID>` 即可接取任务（无需写 Kether），
   并可配置 `accept-data` 在接取成功后自动设置 NPC data 变量；Kether 写法 `quest accept <任务ID> [data <key> <value>]` 同样支持
+- ✅ **NPC 原子提交任务**：对话选项通过 `submit-quest` 实时校验任务条件；物品任务会在成功时一次性扣除背包物品，
+  随后的 `submit-data` 与 Kether 仅在提交成功后执行
+- ✅ **条件达成与任务完成分离**：击杀或收集目标达成时提示“你已达成任务条件”，并可执行 `condition-commands` 推进 NPC data；
+  不会自动发奖，真正完成必须由显式指令或 NPC 提交动作触发
 - ✅ **接取任务不校验前置条件**：任务门控（谁能看到接取选项）完全由对话分支的 data / PAPI 条件控制
 - ✅ **三种任务类型，均支持多项目标**
   - `kill_mob` —— 击杀 MythicMobs 怪物（可配置多个怪物目标，各自计数）
@@ -24,7 +29,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
   + Kether 完成动作（`kether`）
 - ✅ **双通道任务追踪**：SoulCore 客户端使用最多 5 项的任务 HUD；无对应通道或发包失败时自动回退右侧计分板
 - ✅ **任务导航**：CustomQuest 下发目标，SoulCore Fabric 客户端渲染原版信标光柱、无地形遮挡圆环与高对比度任务名/距离悬浮标签；不显示固定底部导航 HUD
-- ✅ **Kether 脚本动作**：点击聊天选项后、任务完成后均执行 TabooLib Kether 脚本
+- ✅ **Kether 脚本动作**：点击对话选项后、任务完成后均可执行 TabooLib Kether 脚本
 
 ## 环境要求
 
@@ -35,16 +40,16 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 | PlaceholderAPI | 必需；构建与联机测试使用 2.12.3 |
 | MythicMobs | 可选；构建使用 5.13.0 |
 | Citizens | 可选；构建使用 2.0.36-SNAPSHOT |
-| SoulCore Fabric | 可选；任务 HUD 优先使用 `soulcore:quest_tracking_v3`（兼容 v2/v1），任务导航使用 `soulcore:quest_navigation` |
+| SoulCore Fabric | 可选；任务 HUD 优先使用 `soulcore:quest_tracking_v3`（兼容 v2/v1），任务导航使用 `soulcore:quest_navigation`，任务对话使用 `soulcore:quest_dialogue` |
 | TabooLib | 6.2.4 维护线；首次启动需下载运行时模块，也可使用离线依赖包 |
 
 ## 安装
 
-1. 将 `CustomQuest-1.6.3.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
+1. 将 `CustomQuest-1.6.4.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
-5. 使用客户端任务 HUD/导航的玩家还需安装匹配 Minecraft 版本、支持 `soulcore:quest_tracking_v3`（兼容 v2/v1）/ `soulcore:quest_navigation` 的 SoulCore Fabric Mod；服务端不需要 SoulCore Paper 插件。未安装时任务追踪自动回退计分板。
+5. 使用客户端任务 HUD、导航或交互式任务对话的玩家还需安装匹配 Minecraft 版本、支持对应 SoulCore 通道的 Fabric Mod；服务端不需要 SoulCore Paper 插件。未安装时任务追踪自动回退计分板，NPC 对话自动回退到可点击聊天选项。
 
 ### 离线安装（服务器无法访问 repo.tabooproject.org 时）
 
@@ -112,7 +117,11 @@ objectives:
 #     item-name: "&b大钻石"       # 可选：只收集显示名为该文字的物品（铁砧改名）
 #     board-line: "&b收集 {target} &e{current}&7/&e{total}"  # 可选：计分板行格式
 
-auto-complete: true             # 所有目标达成后自动完成（submit_item 建议 false）
+# 达成条件时执行（控制台指令，支持 %player% / %quest% / PAPI）；不会完成任务或发奖
+condition-commands:
+  - "cq data set %player% 5 stage kill_ready"
+
+auto-complete: false            # 兼容旧配置但已停用；true 也不会自动完成
 repeatable: false               # 是否可重复
 cooldown: 3600                  # 重复接取冷却（秒）
 
@@ -314,30 +323,42 @@ branches:                     # 从上到下找第一个「条件全部满足」
       - "%player_level% >= 3"
     lines:                    # 对话内容
       - "&f你好，旅行者！"
-    options:                  # 可点击选项
-      accept:
+    options:                  # 最多向客户端显示 6 个可点击选项
+      accept:                 # 稳定选项 ID：1-64 UTF-8 bytes，不能包含控制字符
         text: "&a&l[接受任务] &a清剿荒野"
         hover: "&7点击接受任务"              # 悬浮提示（可选）
         # ---- 接取任务快捷指令（推荐）----
         accept-quest: example_kill           # 点击后接取任务（不校验前置条件）
-        accept-data: "stage=doing"           # 接取成功后设置 NPC data 变量（可列表）
+        accept-data: "stage=kill_doing"      # 接取成功后设置 NPC data 变量（可列表）
         # 等价 Kether 写法：
         # kether:
-        #   - "quest accept example_kill data stage doing"
+        #   - "quest accept example_kill data stage kill_doing"
       reject:
         text: "&7我暂时没空"
         kether:
           - "npc data set stage none"
-  doing:
+  kill_doing:
     data: stage
-    data-value: doing
+    data-value: kill_doing
     lines: ["&f怪物清剿得如何了？"]
+  kill_ready:                  # condition-commands 已把该玩家的 NPC data 改为 ready
+    data: stage
+    data-value: kill_ready
+    lines: ["&a你已经达成任务条件。"]
     options:
       submit:
-        text: "&a&l[提交任务] &a我完成了！"
-        kether:
-          - "quest submit example_kill"
-          - "npc data set stage done"
+        text: "&a&l[提交击杀任务]"
+        submit-quest: example_kill           # 再次校验击杀进度，成功才完成并发奖
+        submit-data: "stage=done"            # 仅提交成功后执行
+  item_ready:
+    data: stage
+    data-value: item_ready
+    lines: ["&a物品已集齐，现在交给我吧。"]
+    options:
+      submit:
+        text: "&a&l[提交物品]"
+        submit-quest: example_submit         # 实时检查主背包，成功后原子扣物并完成
+        submit-data: "stage=done"
   fallback:
     default: true             # 兜底分支（所有分支都不满足时显示）
     lines: ["&f……"]
@@ -348,10 +369,15 @@ branches:                     # 从上到下找第一个「条件全部满足」
 ```
 
 - 分支匹配顺序：先匹配带条件的分支，全部失败后回退到 `default: true` 或无条件的分支
-- 点击选项通过内部指令 `/cq click <npcId> <分支id> <选项序号>` 回调，执行时会再次校验分支条件
+- 支持 `soulcore:quest_dialogue` 的 SoulCore 客户端会显示独立任务对话界面，并通过 `soulcore:quest_dialogue_request` 回传选择；未监听展示通道时使用可点击聊天回退
+- 每次打开对话都会创建绑定玩家的 60 秒一次性会话；Mod 与聊天回退共用同一安全回调，不能直接通过 NPC、分支或序号伪造选项
+- 选项提交后会再次校验分支条件、NPC 存活状态、世界和 6 格交互距离；重放、过期或非本次展示的选项不会执行
 - `accept-quest` 接取成功后才会设置 `accept-data` 中的变量（`key=value`，可写列表）；
-  若选项还配置了 `kether`，会在接取任务之后执行
-- 选项 Kether 执行时注入变量：`@NpcId`、`@BranchId`、`@Option`、`@Player`
+  若选项还配置了 `kether`，只会在接取成功后继续执行
+- `submit-quest` 会调用非强制提交：击杀任务复查进度，物品任务复查并一次性扣除主背包物品；
+  只有成功后才设置 `submit-data` 并继续执行该选项的 Kether。一个选项不能同时配置 `accept-quest` 与 `submit-quest`
+- 选项 Kether 执行时注入变量：`@NpcId`、`@BranchId`、`@Option`（兼容旧序号）、`@OptionId`、`@Player`
+- 单次对话最多发送 8 行、6 个选项，总载荷上限 8192 bytes；标题、行、按钮与悬浮文字会保留合法颜色样式并进行严格 UTF-8/长度控制
 - **NPC data 为玩家级数据**：每个玩家在该 NPC 上有独立的 data 值（持久化保存于 SQLite `data.db`），
   不同玩家处于不同对话分支；管理指令需指定玩家：`/cq data set <玩家> 5 stage none`
 
@@ -410,12 +436,13 @@ branches:                     # 从上到下找第一个「条件全部满足」
 - 计分板回退只在玩家仍使用原生主计分板且没有其他侧边栏时启用；检测到其他插件计分板后会主动让出，不反复抢占。
 - 服务端每 5 秒向 SoulCore HUD 重发一次完整快照；客户端超过约 13 秒没有收到心跳会自动清空，覆盖热禁用和代理后端切换的残留场景。
 - 当前已验证 CustomQuest + PlaceholderAPI + SoulCore 的 Paper 1.21.11 导航链路；MythicMobs、Citizens 与大规模 SQLite 场景仍需单独集成测试。
+- 交互式任务对话需要 Citizens NPC 已生成且玩家选择按钮时仍在同一世界、距离 NPC 不超过 6 格。
 
 ## 构建
 
 ```bash
 ./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.3.jar
+# 产物：build/libs/CustomQuest-1.6.4.jar
 ```
 
 - 需要 JDK 21

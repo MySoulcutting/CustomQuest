@@ -30,6 +30,7 @@ public final class Messages {
         DEFAULTS.put("player-not-found", "&c玩家不存在或不在线。");
         DEFAULTS.put("quest-not-found", "&c任务 &e{id} &c不存在。");
         DEFAULTS.put("quest-accepted", "&a已接取任务：&f{name}");
+        DEFAULTS.put("quest-condition-met", "&a你已达成任务条件：&f{name}");
         DEFAULTS.put("quest-already-accepted", "&c你已经接取过该任务了。");
         DEFAULTS.put("quest-completed", "&a任务完成：&f{name}");
         DEFAULTS.put("quest-not-accepted", "&c你还没有接取该任务。");
@@ -39,7 +40,7 @@ public final class Messages {
         DEFAULTS.put("quest-repeatable", "&7该任务可重复完成。");
         DEFAULTS.put("quest-cooldown", "&c该任务冷却中，剩余 &e{time} &c秒。");
         DEFAULTS.put("quest-not-repeatable", "&c该任务已经完成过，无法重复接取。");
-        DEFAULTS.put("items-not-enough", "&c提交物品不足（需要 &e{need} &c个，你只有 &e{have} &c个）。");
+        DEFAULTS.put("items-not-enough", "&c提交物品不足：&f{item} &c需要 &e{need} &c个，你只有 &e{have} &c个。");
         DEFAULTS.put("items-submitted", "&7已提交 &e{amount} &7个 &f{item} &7。");
         DEFAULTS.put("dialogue-no-config", "&c该 NPC 没有配置对话。");
         DEFAULTS.put("npc-not-found", "&cCitizens NPC &e{id} &c不存在。");

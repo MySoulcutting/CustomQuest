@@ -1,6 +1,7 @@
 package com.cj.customquest.listener;
 
 import com.cj.customquest.board.QuestBoard;
+import com.cj.customquest.dialogue.DialogueManager;
 import com.cj.customquest.navigation.NavigationManager;
 import com.cj.customquest.navigation.NavigationPayload;
 import com.cj.customquest.quest.QuestManager;
@@ -27,10 +28,12 @@ public class PlayerListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         QuestManager.getInstance().getStorage().load(event.getPlayer());
         QuestBoard.getInstance().update(event.getPlayer());
+        QuestManager.getInstance().queueConditionCheck(event.getPlayer());
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        DialogueManager.getInstance().remove(event.getPlayer());
         QuestBoard.getInstance().remove(event.getPlayer());
         NavigationPayload.clearRequestState(event.getPlayer());
         NavigationManager.getInstance().remove(event.getPlayer());

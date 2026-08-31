@@ -1,6 +1,6 @@
 package com.cj.customquest.listener;
 
-import com.cj.customquest.board.QuestBoard;
+import com.cj.customquest.quest.QuestManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -19,8 +19,8 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 
 /**
- * 背包内容变化后按玩家刷新提交物品任务进度。
- * 所有事件合并到下一 tick，避免一次操作重复发送 HUD 或重建计分板。
+ * 背包内容变化后检查提交物品任务条件并刷新任务追踪。
+ * 所有事件由 QuestManager 合并到下一 tick，确保读取到操作完成后的背包状态。
  */
 public final class InventoryListener implements Listener {
 
@@ -95,6 +95,6 @@ public final class InventoryListener implements Listener {
     }
 
     private void queue(Player player) {
-        QuestBoard.getInstance().queueUpdate(player);
+        QuestManager.getInstance().queueInventoryConditionCheck(player);
     }
 }

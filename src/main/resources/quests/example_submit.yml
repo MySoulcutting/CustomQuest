@@ -56,7 +56,11 @@ objectives:
   - item: "IRON_INGOT:10"
     name: "&f铁锭"
 
-# 提交物品任务一般手动提交（在对话选项里用 Kether 动作 quest submit example_submit）
+# 集齐物品时只提示并推进 NPC 对话；不会在此处扣除物品或完成任务。
+condition-commands:
+  - "cq data set %player% 5 stage item_ready"
+
+# 已停用的兼容配置；实际扣物与完成由 NPC 对话的 submit-quest 触发。
 auto-complete: false
 
 repeatable: false

@@ -68,8 +68,13 @@ objectives:
 # 任务门控（谁能看到/点击接取选项）请使用 NPC 对话分支的 data / PAPI 条件，
 # 或在对话选项中用 accept-quest 快捷指令 / Kether 动作 quest accept 接取。
 
-# 所有目标进度达成后是否自动完成任务（kill_mob 建议 true，submit_item 一般 false 等玩家主动提交）
-auto-complete: true
+# 达成全部目标时只提示，不会自动完成；以下指令只负责推进当前玩家的 NPC data。
+# 击杀事件没有“当前 NPC”上下文，因此这里需要明确填写 Citizens NPC id。
+condition-commands:
+  - "cq data set %player% 5 stage kill_ready"
+
+# 已停用的兼容配置：即使为 true 也不会自动完成，任务必须通过指令/NPC 对话提交。
+auto-complete: false
 
 # 是否可重复接取
 repeatable: false

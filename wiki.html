@@ -180,7 +180,7 @@
     以指令或 Kether 脚本发放奖励，并通过 NPC data 变量实现分支任务与分支对话。
   </p>
   <div class="notice">
-    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.6.3</b>，使用 Paper <b>1.21.1 API</b> 编译，
+    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.6.4</b>，使用 Paper <b>1.21.1 API</b> 编译，
     已在 Paper <b>1.21.11</b> 上验证启动与 SoulCore 导航；其他 1.21.x 版本仍需实服验证。
   </div>
 </section>
@@ -200,9 +200,15 @@
     <li><b>NPC data 分支任务 / 分支对话（玩家级数据）：</b>对话分支支持 <code>data=</code> / <code>data-value=</code>（或列表写法）与 PAPI 变量条件，
       当 NPC 的 data 值不同时显示不同对话，用于接取任务、推进剧情。
       <b>data 变量按玩家独立存储</b>：每个玩家在同一 NPC 上有自己的 data 值，不同玩家可处于不同对话分支，互不影响。</li>
+    <li><b>SoulCore 交互式任务对话：</b>支持对应客户端通道时显示独立 NPC 对话界面；未安装客户端时自动回退到可点击聊天。
+      两种入口共用玩家绑定、60 秒有效且一次性消费的安全会话。</li>
     <li><b>对话内接取任务指令：</b>对话选项直接配置 <code>accept-quest: &lt;任务ID&gt;</code> 即可接取任务（无需写 Kether），
       并可配置 <code>accept-data</code> 在接取成功后自动设置 NPC data 变量推进剧情；
       Kether 写法 <code>quest accept &lt;任务ID&gt; [data &lt;key&gt; &lt;value&gt;]</code> 同样支持。</li>
+    <li><b>条件达成与完成分离：</b>击杀或物品目标首次达成时提示玩家，并执行 <code>condition-commands</code>；
+      任务不会自动结算，必须由显式指令或 NPC 提交动作完成。</li>
+    <li><b>NPC 原子提交：</b>对话选项使用 <code>submit-quest</code> 实时校验进度；物品任务仅在成功时一次性扣除背包物品，
+      随后的 <code>submit-data</code> 与 Kether 也只会在提交成功后执行。</li>
     <li><b>接取任务不校验前置条件：</b>任务门控（谁能看到接取选项）完全由对话分支的 data / PAPI 条件控制。</li>
     <li><b>任务类型 × 多项目标：</b>
       <ul>
@@ -228,6 +234,7 @@
     <tr><td>PlaceholderAPI</td><td>必需；构建与测试使用 2.12.3</td></tr>
     <tr><td>MythicMobs</td><td>可选；构建使用 5.13.0</td></tr>
     <tr><td>Citizens</td><td>可选；构建使用 2.0.36-SNAPSHOT</td></tr>
+    <tr><td>SoulCore Fabric</td><td>可选；任务 HUD、导航与交互式 NPC 对话客户端</td></tr>
     <tr><td>TabooLib</td><td>6.2.4 维护线；首次启动需下载运行时模块</td></tr>
   </table>
 </section>
@@ -235,7 +242,7 @@
 <section id="install">
   <h2>安装</h2>
   <ol>
-    <li>将构建产物 <code>build/libs/CustomQuest-1.6.3.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
+    <li>将构建产物 <code>build/libs/CustomQuest-1.6.4.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
     <li>按功能选装 <b>MythicMobs</b> 与 <b>Citizens</b>；</li>
     <li>启动服务器（首次启动会联网下载 TabooLib 模块，并生成默认配置与示例文件）；</li>
     <li>按需编辑 <code>plugins/CustomQuest/</code> 下的配置后执行 <code>/cq reload</code>。</li>
@@ -425,7 +432,10 @@
 <span class="cmt"># mob: SkeletonKing</span>
 <span class="cmt"># amount: 10</span>
 
-<span class="key">auto-complete</span>: <span class="val">true</span>            <span class="cmt"># 全部目标达成后自动完成</span>
+<span class="key">condition-commands</span>:                 <span class="cmt"># 达成条件时执行，不完成任务或发奖</span>
+  - <span class="val">"cq data set %player% 5 stage kill_ready"</span>
+
+<span class="key">auto-complete</span>: <span class="val">false</span>           <span class="cmt"># 兼容旧配置但已停用；true 也不会自动完成</span>
 <span class="key">repeatable</span>: <span class="val">false</span>              <span class="cmt"># 是否可重复</span>
 <span class="key">cooldown</span>: <span class="val">3600</span>                 <span class="cmt"># 重复接取冷却（秒）</span>
 
@@ -456,7 +466,10 @@
 <span class="cmt">#   - item: "IRON_INGOT:10"</span>
 <span class="cmt">#     name: "&amp;f铁锭"</span>
 
-<span class="key">auto-complete</span>: <span class="val">false</span>          <span class="cmt"># 建议 false，由玩家在对话选项中用 quest submit 主动提交</span></code></pre>
+<span class="key">condition-commands</span>:
+  - <span class="val">"cq data set %player% 5 stage item_ready"</span>
+
+<span class="key">auto-complete</span>: <span class="val">false</span>          <span class="cmt"># 已停用；由 NPC submit-quest 显式提交</span></code></pre>
   <p class="muted">
     提交类任务：进度随背包实时统计；提交时校验并扣除所有目标物品，全部满足才完成任务。
   </p>
@@ -543,26 +556,25 @@
         <span class="key">hover</span>: <span class="val">"&amp;7点击接受任务"</span>       <span class="cmt"># 悬浮提示（可选）</span>
         <span class="cmt"># ---- 接取任务快捷指令（推荐） ----</span>
         <span class="key">accept-quest</span>: <span class="val">example_kill</span>   <span class="cmt"># 点击后接取任务（不校验前置条件）</span>
-        <span class="key">accept-data</span>: <span class="val">"stage=doing"</span>   <span class="cmt"># 接取成功后设置 NPC data 变量</span>
+        <span class="key">accept-data</span>: <span class="val">"stage=kill_doing"</span>   <span class="cmt"># 接取成功后设置 NPC data 变量</span>
         <span class="cmt"># 等价 Kether 写法：</span>
         <span class="cmt"># kether:</span>
-        <span class="cmt">#   - "quest accept example_kill data stage doing"</span>
+        <span class="cmt">#   - "quest accept example_kill data stage kill_doing"</span>
       <span class="key">reject</span>:
         <span class="key">text</span>: <span class="val">"&amp;7我暂时没空"</span>
         <span class="key">kether</span>:
           - <span class="val">"npc data set stage none"</span>
 
-  <span class="key">doing</span>:
+  <span class="key">kill_ready</span>:
     <span class="key">data</span>: <span class="val">stage</span>
-    <span class="key">data-value</span>: <span class="val">doing</span>
+    <span class="key">data-value</span>: <span class="val">kill_ready</span>
     <span class="key">lines</span>:
-      - <span class="val">"&amp;f怪物清剿得如何了？"</span>
+      - <span class="val">"&amp;a你已经达成任务条件。"</span>
     <span class="key">options</span>:
       <span class="key">submit</span>:
-        <span class="key">text</span>: <span class="val">"&amp;a&amp;l[提交任务] &amp;a我完成了！"</span>
-        <span class="key">kether</span>:
-          - <span class="val">"quest submit example_kill"</span>
-          - <span class="val">"npc data set stage done"</span>
+        <span class="key">text</span>: <span class="val">"&amp;a&amp;l[提交击杀任务]"</span>
+        <span class="key">submit-quest</span>: <span class="val">example_kill</span>
+        <span class="key">submit-data</span>: <span class="val">"stage=done"</span>
 
   <span class="key">fallback</span>:
     <span class="key">default</span>: <span class="val">true</span>            <span class="cmt"># 兜底分支（可选）</span>
@@ -576,15 +588,17 @@
   <pre><code>玩家点击 NPC #5
    │
    ├─ stage == none ──► 「接取任务」选项 ──► accept-quest: example_kill（不校验前置条件）
-   │                                        └─► accept-data: stage=doing（自动设置 data 变量）
-   ├─ stage == doing ─► 「提交任务」选项 ──► quest submit example_kill
-   │                                        └─► npc data set stage done
-   └─ stage == done ──► 完成对话 ──► npc data set stage none（回到初始）</code></pre>
+   │                                        └─► accept-data: stage=kill_doing
+   ├─ condition-commands ───────────────────► stage=kill_ready
+   ├─ stage == kill_ready ─► submit-quest: example_kill
+   │                        └─► 成功后 submit-data: stage=done
+   └─ stage == done ───────► 完成对话</code></pre>
 
   <ul>
-    <li>点击选项通过内部指令 <code>/cq click &lt;npcId&gt; &lt;分支id&gt; &lt;选项序号&gt;</code> 回调，执行时会<b>再次校验</b>分支条件；</li>
+    <li>SoulCore 对话 UI 与聊天回退共用绑定玩家的一次性会话；执行时会再次校验分支条件、NPC 状态和交互距离；</li>
     <li><code>accept-quest</code> 接取任务<b>不校验前置条件</b>，接取成功后才写入 <code>accept-data</code> 的变量；
       若选项还配置了 <code>kether</code>，会在接取任务之后执行；</li>
+    <li><code>submit-quest</code> 只在进度足够时成功；物品任务会原子扣物，成功后才写入 <code>submit-data</code> 并继续选项 Kether；</li>
     <li>选项 Kether 执行时注入变量：<code>@NpcId</code>（当前 NPC id）、<code>@BranchId</code>、<code>@Option</code>、<code>@Player</code>；</li>
     <li><b>NPC data 为玩家级数据</b>：每个玩家在该 NPC 上有独立 data 值（持久化保存），不同玩家处于不同对话分支；
       管理指令需指定玩家：<code>/cq data set &lt;玩家&gt; 5 stage none</code>；</li>
@@ -649,7 +663,7 @@
 <section id="build">
   <h2>构建</h2>
 <pre><code>./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.3.jar</code></pre>
+# 产物：build/libs/CustomQuest-1.6.4.jar</code></pre>
   <ul>
     <li>需要 JDK 21；</li>
     <li>仓库已内置 <code>libs/PlaceholderAPI-2.12.3.jar</code> 作为编译依赖（也可改用仓库坐标）；</li>
@@ -688,7 +702,7 @@
 </section>
 
 <footer>
-  CustomQuest 1.6.3 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
+  CustomQuest 1.6.4 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
 </footer>
 
 </main>

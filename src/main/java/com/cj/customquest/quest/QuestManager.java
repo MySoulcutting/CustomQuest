@@ -9,6 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import taboolib.platform.BukkitPlugin;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +19,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 任务管理器：任务加载、接取/放弃/提交/完成、多目标进度统计与奖励发放。
@@ -29,6 +33,8 @@ public final class QuestManager {
     private File questsFolder;
     private QuestStorage storage;
     private final Map<String, Quest> quests = new LinkedHashMap<>();
+    /** 合并同一玩家在一 tick 内的背包变化与条件检查。 */
+    private final Set<UUID> queuedConditionChecks = ConcurrentHashMap.newKeySet();
 
     public static QuestManager getInstance() {
         return instance;
@@ -165,11 +171,21 @@ public final class QuestManager {
             QuestProgress progress = storage.get(player).getAccepted().get(quest.getId());
             return progress == null ? 0 : progress.getCounter(counterKey(progress, quest.getObjectives(), index));
         }
-        return countItems(player, objective);
+        return planItemRemoval(player.getInventory().getStorageContents(), quest.getObjectives())
+                .allocatedByObjective()[index];
     }
 
     /** 全部目标合计进度（每个目标封顶其需求数） */
     public int getProgress(Player player, Quest quest) {
+        if (quest.getType() == QuestType.SUBMIT_ITEM) {
+            int total = 0;
+            int[] allocated = planItemRemoval(
+                    player.getInventory().getStorageContents(), quest.getObjectives()).allocatedByObjective();
+            for (int amount : allocated) {
+                total += amount;
+            }
+            return total;
+        }
         int total = 0;
         List<QuestObjective> objectives = quest.getObjectives();
         for (int i = 0; i < objectives.size(); i++) {
@@ -188,6 +204,9 @@ public final class QuestManager {
     public boolean isProgressComplete(Player player, Quest quest) {
         if (quest.getType() == QuestType.DESCRIBE) {
             return false;
+        }
+        if (quest.getType() == QuestType.SUBMIT_ITEM) {
+            return planItemRemoval(player.getInventory().getStorageContents(), quest.getObjectives()).successful();
         }
         List<QuestObjective> objectives = quest.getObjectives();
         for (int i = 0; i < objectives.size(); i++) {
@@ -227,6 +246,8 @@ public final class QuestManager {
         Messages.sendTo(player, "quest-accepted", Map.of("name", TextUtil.parse(player, quest.getName())));
         sendQuestInfo(player, quest);
         QuestBoard.getInstance().update(player);
+        // 下一 tick 检查：让 NPC 选项的 accept-data 先写入，再执行条件指令。
+        queueConditionCheck(player);
         return true;
     }
 
@@ -246,17 +267,8 @@ public final class QuestManager {
 
     /** 提交任务（进度足够则完成；描述任务只能通过指令完成） */
     public boolean submitQuest(Player player, Quest quest) {
-        if (!storage.get(player).isAccepted(quest.getId())) {
-            Messages.sendTo(player, "quest-not-accepted");
-            return false;
-        }
         if (quest.getType() == QuestType.DESCRIBE) {
             Messages.sendTo(player, "quest-command-only");
-            return false;
-        }
-        if (!isProgressComplete(player, quest)) {
-            Messages.sendTo(player, "quest-progress-not-enough",
-                    Map.of("current", getProgress(player, quest), "total", quest.getTotalAmount()));
             return false;
         }
         return completeQuest(player, quest, false);
@@ -271,6 +283,10 @@ public final class QuestManager {
      */
     public boolean completeQuest(Player player, Quest quest, boolean force) {
         PlayerQuestData data = storage.get(player);
+        ItemStack[] itemContents = quest.getType() == QuestType.SUBMIT_ITEM
+                ? player.getInventory().getStorageContents() : null;
+        ItemRemovalPlan itemPlan = itemContents == null
+                ? null : planItemRemoval(itemContents, quest.getObjectives());
         if (!force) {
             if (quest.getType() == QuestType.DESCRIBE) {
                 Messages.sendTo(player, "quest-command-only");
@@ -280,18 +296,24 @@ public final class QuestManager {
                 Messages.sendTo(player, "quest-not-accepted");
                 return false;
             }
-            if (!isProgressComplete(player, quest)) {
+            if (itemPlan != null && !itemPlan.successful()) {
+                sendItemsNotEnough(player, itemPlan);
+                return false;
+            }
+            if (itemPlan == null && !isProgressComplete(player, quest)) {
                 Messages.sendTo(player, "quest-progress-not-enough",
                         Map.of("current", getProgress(player, quest), "total", quest.getTotalAmount()));
                 return false;
             }
         }
-        // 扣除提交物品
-        if (quest.getType() == QuestType.SUBMIT_ITEM && !takeItems(player, quest)) {
-            QuestObjective first = quest.getObjectives().get(0);
-            Messages.sendTo(player, "items-not-enough",
-                    Map.of("need", first.getAmount(), "have", countItems(player, first)));
-            return false;
+        // 即使是管理员强制完成，提交物品任务也必须实际交出配置要求的物品。
+        if (itemPlan != null) {
+            if (!itemPlan.successful()) {
+                sendItemsNotEnough(player, itemPlan);
+                return false;
+            }
+            applyItemRemoval(itemContents, itemPlan);
+            player.getInventory().setStorageContents(itemContents);
         }
         data.getAccepted().remove(quest.getId());
         data.getCompleted().put(quest.getId(), System.currentTimeMillis());
@@ -323,7 +345,7 @@ public final class QuestManager {
     /** MythicMobs 击杀事件（多目标分别计数，并即时刷新全息视图） */
     public void onMythicMobKill(Player player, String internalName) {
         boolean anyProgressed = false;
-        // 复制快照遍历：auto-complete 完成任务会从 accepted 移除条目，直接遍历会抛 ConcurrentModificationException
+        // 使用快照，避免条件指令在回调中完成或放弃任务时修改 accepted。
         for (Map.Entry<String, QuestProgress> entry : new ArrayList<>(storage.get(player).getAccepted().entrySet())) {
             Quest quest = getQuest(entry.getKey());
             if (quest == null || quest.getType() != QuestType.KILL_MOB) continue;
@@ -332,15 +354,17 @@ public final class QuestManager {
             for (int i = 0; i < objectives.size(); i++) {
                 QuestObjective objective = objectives.get(i);
                 if (objective.isKill() && objective.getTarget().equalsIgnoreCase(internalName)) {
-                    entry.getValue().increment(counterKey(entry.getValue(), objectives, i), 1);
-                    progressed = true;
+                    String key = counterKey(entry.getValue(), objectives, i);
+                    int current = entry.getValue().getCounter(key);
+                    if (current < objective.getAmount()) {
+                        entry.getValue().setCounter(key, current + 1);
+                        progressed = true;
+                    }
                 }
-            }
-            if (progressed && quest.isAutoComplete() && isProgressComplete(player, quest)) {
-                completeQuest(player, quest, false);
             }
             if (progressed) {
                 anyProgressed = true;
+                updateConditionState(player, quest, entry.getValue());
             }
         }
         // 击杀后即时刷新计分板（无需等待定时刷新）
@@ -349,62 +373,169 @@ public final class QuestManager {
         }
     }
 
-    // ---------------- 物品 ----------------
+    // ---------------- 条件达成 ----------------
 
-    /** 背包中匹配目标要求的物品数量（材料 + 可选的自定义名字；只统计主背包，不含盔甲/副手） */
-    private int countItems(Player player, QuestObjective objective) {
-        int count = 0;
-        for (ItemStack item : player.getInventory().getStorageContents()) {
-            if (item != null && matchesItem(item, objective)) {
-                count += item.getAmount();
+    /** 背包事件使用：仅在玩家有提交物品任务时安排下一 tick 检查。 */
+    public void queueInventoryConditionCheck(Player player) {
+        for (String questId : storage.get(player).getAccepted().keySet()) {
+            Quest quest = getQuest(questId);
+            if (quest != null && quest.getType() == QuestType.SUBMIT_ITEM) {
+                queueConditionCheck(player);
+                return;
             }
         }
-        return count;
     }
 
-    /** 物品是否匹配目标：材料一致，且（若配置了 item-name）显示名一致 */
-    private boolean matchesItem(ItemStack item, QuestObjective objective) {
-        if (item.getType() != objective.getMaterial()) {
+    /** 合并到下一 tick 检查全部已接任务，并刷新任务追踪。 */
+    public void queueConditionCheck(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (!queuedConditionChecks.add(uuid)) {
+            return;
+        }
+        Bukkit.getScheduler().runTask(BukkitPlugin.getInstance(), () -> {
+            queuedConditionChecks.remove(uuid);
+            Player online = Bukkit.getPlayer(uuid);
+            if (online != null && online.isOnline()) {
+                checkConditionStates(online);
+                QuestBoard.getInstance().update(online);
+            }
+        });
+    }
+
+    /** 校准玩家所有已接任务的条件状态；可供上线、重载和低频兜底刷新调用。 */
+    public void checkConditionStates(Player player) {
+        for (Map.Entry<String, QuestProgress> entry
+                : new ArrayList<>(storage.get(player).getAccepted().entrySet())) {
+            Quest quest = getQuest(entry.getKey());
+            if (quest != null && quest.getType() != QuestType.DESCRIBE) {
+                updateConditionState(player, quest, entry.getValue());
+            }
+        }
+    }
+
+    /**
+     * 五秒低频兜底：仅校准持有提交物品任务的在线玩家，覆盖不会触发背包事件的 API 修改。
+     */
+    public void refreshOnlineItemConditions() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            for (String questId : storage.get(player).getAccepted().keySet()) {
+                Quest quest = getQuest(questId);
+                if (quest != null && quest.getType() == QuestType.SUBMIT_ITEM) {
+                    checkConditionStates(player);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void updateConditionState(Player player, Quest quest, QuestProgress progress) {
+        if (!progress.updateConditionMet(isProgressComplete(player, quest))) {
+            return;
+        }
+        Messages.sendTo(player, "quest-condition-met",
+                Map.of("name", TextUtil.parse(player, quest.getName())));
+        for (String command : quest.getConditionCommands()) {
+            String executed = TextUtil.papi(player, command
+                    .replace("%player%", player.getName())
+                    .replace("%quest%", quest.getId()));
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), executed);
+        }
+    }
+
+    // ---------------- 物品 ----------------
+
+    /** 物品是否匹配目标：材料一致，且（若配置了 item-name）显示名一致。 */
+    private static boolean matchesItem(InventorySlot item, QuestObjective objective) {
+        if (item.material() != objective.getMaterial()) {
             return false;
         }
         String requiredName = objective.getItemName();
         if (requiredName == null || requiredName.isEmpty()) {
             return true;
         }
-        if (!item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {
-            return false;
-        }
         String expected = TextUtil.color(requiredName);
-        return item.getItemMeta().getDisplayName().equals(expected);
+        return expected.equals(item.displayName());
     }
 
-    private boolean takeItems(Player player, Quest quest) {
-        ItemStack[] contents = player.getInventory().getStorageContents();
-        // 先按格模拟扣除（不同目标可能匹配同一格物品），任一目标不足则整体失败，避免部分扣除造成物品丢失
-        int[] amounts = new int[contents.length];
+    /**
+     * 根据背包快照生成原子扣除计划。先分配带自定义名的精确目标，再分配材料通配目标，
+     * 防止通配目标抢走只有精确目标能使用的物品。
+     */
+    private static ItemRemovalPlan planItemRemoval(ItemStack[] contents, List<QuestObjective> objectives) {
+        InventorySlot[] snapshot = new InventorySlot[contents.length];
         for (int i = 0; i < contents.length; i++) {
-            amounts[i] = contents[i] == null ? 0 : contents[i].getAmount();
+            ItemStack item = contents[i];
+            if (item == null) {
+                continue;
+            }
+            String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName()
+                    ? item.getItemMeta().getDisplayName() : null;
+            snapshot[i] = new InventorySlot(item.getType(), displayName, item.getAmount());
         }
-        for (QuestObjective objective : quest.getObjectives()) {
-            int remaining = objective.getAmount();
-            for (int i = 0; i < contents.length && remaining > 0; i++) {
-                if (contents[i] != null && matchesItem(contents[i], objective)) {
-                    int take = Math.min(remaining, amounts[i]);
-                    amounts[i] -= take;
-                    remaining -= take;
+        return planItemRemoval(snapshot, objectives);
+    }
+
+    static ItemRemovalPlan planItemRemoval(InventorySlot[] contents, List<QuestObjective> objectives) {
+        int[] amounts = new int[contents.length];
+        int[] allocated = new int[objectives.size()];
+        for (int i = 0; i < contents.length; i++) {
+            amounts[i] = contents[i] == null ? 0 : contents[i].amount();
+        }
+
+        for (boolean namedPass : new boolean[]{true, false}) {
+            for (int objectiveIndex = 0; objectiveIndex < objectives.size(); objectiveIndex++) {
+                QuestObjective objective = objectives.get(objectiveIndex);
+                boolean named = objective.getItemName() != null && !objective.getItemName().isEmpty();
+                if (named != namedPass) {
+                    continue;
+                }
+                int remaining = objective.getAmount();
+                for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+                    if (contents[slot] != null && amounts[slot] > 0
+                            && matchesItem(contents[slot], objective)) {
+                        int taken = Math.min(remaining, amounts[slot]);
+                        amounts[slot] -= taken;
+                        remaining -= taken;
+                        allocated[objectiveIndex] += taken;
+                    }
                 }
             }
-            if (remaining > 0) {
-                return false;
+        }
+
+        for (int i = 0; i < objectives.size(); i++) {
+            QuestObjective objective = objectives.get(i);
+            if (allocated[i] < objective.getAmount()) {
+                return new ItemRemovalPlan(amounts, allocated, objective, allocated[i]);
             }
         }
-        // 模拟通过后一次性写入真实背包
+        return new ItemRemovalPlan(amounts, allocated, null, 0);
+    }
+
+    /** 模拟全部成功后才把扣除结果写回真实背包。 */
+    private static void applyItemRemoval(ItemStack[] contents, ItemRemovalPlan plan) {
         for (int i = 0; i < contents.length; i++) {
-            if (contents[i] != null && contents[i].getAmount() != amounts[i]) {
-                contents[i].setAmount(amounts[i]);
+            if (contents[i] != null && contents[i].getAmount() != plan.remainingAmounts()[i]) {
+                contents[i].setAmount(plan.remainingAmounts()[i]);
             }
         }
-        return true;
+    }
+
+    private static void sendItemsNotEnough(Player player, ItemRemovalPlan plan) {
+        QuestObjective missing = plan.missingObjective();
+        Messages.sendTo(player, "items-not-enough", Map.of(
+                "item", TextUtil.parse(player, missing.getDisplay()),
+                "need", missing.getAmount(),
+                "have", plan.availableForMissing()));
+    }
+
+    static record ItemRemovalPlan(int[] remainingAmounts, int[] allocatedByObjective,
+                                  QuestObjective missingObjective, int availableForMissing) {
+        boolean successful() {
+            return missingObjective == null;
+        }
+    }
+
+    static record InventorySlot(org.bukkit.Material material, String displayName, int amount) {
     }
 
     /**

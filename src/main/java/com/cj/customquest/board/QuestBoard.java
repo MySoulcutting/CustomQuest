@@ -12,7 +12,6 @@ import com.cj.customquest.tracking.QuestTrackingSnapshot;
 import com.cj.customquest.util.TextUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import taboolib.platform.BukkitPlugin;
 import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
@@ -70,8 +69,6 @@ public final class QuestBoard {
     private final Map<UUID, Scoreboard> previousBoards = new ConcurrentHashMap<>();
     /** 上次已投递的模式与内容；内容未变化时跳过发包/计分板写入 */
     private final Map<UUID, DeliveryState> states = new ConcurrentHashMap<>();
-    /** 等待下一 tick 合并刷新的玩家，避免一次背包操作触发多次更新 */
-    private final Set<UUID> queued = ConcurrentHashMap.newKeySet();
 
     public static QuestBoard getInstance() {
         return instance;
@@ -223,29 +220,12 @@ public final class QuestBoard {
         states.put(uuid, nextState);
     }
 
-    /** 背包事件调用：合并为下一 tick 的单次刷新。 */
+    /**
+     * @deprecated 背包检查已移至 QuestManager，且不再依赖任务追踪开关。
+     */
+    @Deprecated(forRemoval = true)
     public void queueUpdate(Player player) {
-        UUID uuid = player.getUniqueId();
-        if (!enabled || !tracked.contains(uuid) || !tracksInventoryProgress(player) || !queued.add(uuid)) {
-            return;
-        }
-        Bukkit.getScheduler().runTask(BukkitPlugin.getInstance(), () -> {
-            queued.remove(uuid);
-            Player online = Bukkit.getPlayer(uuid);
-            if (online != null && online.isOnline()) {
-                update(online);
-            }
-        });
-    }
-
-    private boolean tracksInventoryProgress(Player player) {
-        for (String questId : QuestManager.getInstance().getPlayerData(player).getAccepted().keySet()) {
-            Quest quest = QuestManager.getInstance().getQuest(questId);
-            if (quest != null && quest.getType() == QuestType.SUBMIT_ITEM) {
-                return true;
-            }
-        }
-        return false;
+        QuestManager.getInstance().queueInventoryConditionCheck(player);
     }
 
     private QuestTrackingSnapshot buildSnapshot(Player player) {
@@ -463,7 +443,6 @@ public final class QuestBoard {
         UUID uuid = player.getUniqueId();
         states.remove(uuid);
         tracked.remove(uuid);
-        queued.remove(uuid);
         QuestTrackingPayload.sendClear(player);
         clearScoreboard(player);
     }
@@ -486,7 +465,6 @@ public final class QuestBoard {
         boards.remove(uuid);
         previousBoards.remove(uuid);
         states.remove(uuid);
-        queued.remove(uuid);
     }
 
     /** 刷新所有在线玩家 */
@@ -512,7 +490,6 @@ public final class QuestBoard {
                 boards.remove(uuid);
                 previousBoards.remove(uuid);
                 states.remove(uuid);
-                queued.remove(uuid);
                 continue;
             }
             update(player, true);
@@ -534,7 +511,6 @@ public final class QuestBoard {
         boards.clear();
         previousBoards.clear();
         states.clear();
-        queued.clear();
     }
 
     private enum DeliveryMode {

@@ -92,23 +92,42 @@ public final class DialogueBranch {
             for (String key : optionsSection.getKeys(false)) {
                 ConfigurationSection optionSection = optionsSection.getConfigurationSection(key);
                 if (optionSection == null) continue;
+                if (!DialoguePayload.isValidOptionId(key)) {
+                    throw new IllegalArgumentException("对话选项 ID 必须为 1-64 UTF-8 bytes 且不能包含控制字符: " + key);
+                }
                 String text = optionSection.getString("text", "");
                 String hover = optionSection.getString("hover", "");
                 // 接取任务快捷指令（无需写 Kether）
-                String acceptQuest = optionSection.getString("accept-quest", null);
+                String acceptQuest = normalizeQuestId(optionSection.getString("accept-quest", null));
                 // 接取成功后设置的 NPC data 变量（"key=value"）
                 List<String> acceptData = optionSection.isString("accept-data")
                         ? new ArrayList<>(List.of(optionSection.getString("accept-data")))
                         : optionSection.getStringList("accept-data");
+                // 提交任务快捷指令：成功时才会扣物、完成任务并继续 data/Kether。
+                String submitQuest = normalizeQuestId(optionSection.getString("submit-quest", null));
+                List<String> submitData = optionSection.isString("submit-data")
+                        ? new ArrayList<>(List.of(optionSection.getString("submit-data")))
+                        : optionSection.getStringList("submit-data");
+                if (acceptQuest != null && submitQuest != null) {
+                    throw new IllegalArgumentException("对话选项不能同时配置 accept-quest 与 submit-quest: " + key);
+                }
                 List<String> kether = optionSection.isString("kether")
                         ? new ArrayList<>(List.of(optionSection.getString("kether")))
                         : optionSection.getStringList("kether");
                 boolean close = optionSection.getBoolean("close", true);
-                options.add(new DialogueOption(text, hover, acceptQuest, acceptData, kether, close));
+                options.add(new DialogueOption(key, text, hover, acceptQuest, acceptData,
+                        submitQuest, submitData, kether, close));
             }
         }
 
         boolean defaultBranch = section.getBoolean("default", false);
         return new DialogueBranch(branchId, defaultBranch, dataConditions, papiConditions, lines, options);
+    }
+
+    private static String normalizeQuestId(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }
