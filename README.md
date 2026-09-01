@@ -4,7 +4,7 @@ CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的�
 提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
-当前项目版本为 **1.6.7**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
+当前项目版本为 **1.6.8**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
 
 ## 功能总览
 
@@ -44,7 +44,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
 ## 安装
 
-1. 将 `CustomQuest-1.6.7.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
+1. 将 `CustomQuest-1.6.8.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
@@ -467,7 +467,7 @@ then: |
 
 ```bash
 ./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.7.jar
+# 产物：build/libs/CustomQuest-1.6.8.jar
 ```
 
 - 需要 JDK 21
