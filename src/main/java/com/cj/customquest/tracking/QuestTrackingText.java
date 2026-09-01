@@ -8,7 +8,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 
-/** 任务追踪协议的纯文本规范化。 */
+/** 任务追踪协议的单行文本规范化。 */
 final class QuestTrackingText {
 
     private QuestTrackingText() {
@@ -19,12 +19,18 @@ final class QuestTrackingText {
         encodeUtf8Strict(source);
         String colored = ChatColor.translateAlternateColorCodes('&', source);
         String stripped = ChatColor.stripColor(colored);
-        if (stripped == null || stripped.isEmpty()) {
+        return formattedSingleLine(stripped);
+    }
+
+    static String formattedSingleLine(String value) {
+        String source = value == null ? "" : value;
+        encodeUtf8Strict(source);
+        if (source.isEmpty()) {
             return "";
         }
-        StringBuilder singleLine = new StringBuilder(stripped.length());
-        for (int offset = 0; offset < stripped.length(); ) {
-            int codePoint = stripped.codePointAt(offset);
+        StringBuilder singleLine = new StringBuilder(source.length());
+        for (int offset = 0; offset < source.length(); ) {
+            int codePoint = source.codePointAt(offset);
             boolean lineSeparator = Character.getType(codePoint) == Character.LINE_SEPARATOR
                     || Character.getType(codePoint) == Character.PARAGRAPH_SEPARATOR;
             singleLine.appendCodePoint(Character.isISOControl(codePoint) || lineSeparator ? ' ' : codePoint);

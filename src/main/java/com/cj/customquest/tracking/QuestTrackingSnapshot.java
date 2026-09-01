@@ -88,7 +88,7 @@ public record QuestTrackingSnapshot(int totalTaskCount, List<Task> tasks) {
             if (titleRgb < NO_TITLE_RGB || titleRgb > 0xFFFFFF) {
                 throw new IllegalArgumentException("Task title RGB must be absent or a 24-bit colour");
             }
-            title = QuestTrackingText.plainSingleLine(title);
+            title = QuestTrackingText.formattedSingleLine(title);
             lines = List.copyOf(Objects.requireNonNull(lines, "lines"));
             if (lines.size() > MAX_LINES_PER_TASK) {
                 throw new IllegalArgumentException("A tracked task can contain at most two lines");
@@ -98,7 +98,7 @@ public record QuestTrackingSnapshot(int totalTaskCount, List<Task> tasks) {
 
     public record Line(String text, boolean hasProgress, int current, int total) {
         public Line {
-            text = QuestTrackingText.plainSingleLine(text);
+            text = QuestTrackingText.formattedSingleLine(text);
             if (hasProgress && (current < 0 || total <= 0)) {
                 throw new IllegalArgumentException("Task progress requires a non-negative current and positive total");
             }

@@ -53,7 +53,8 @@ public class PlayerListener implements Listener {
     private void queueChannelRefresh(Player player, String channel) {
         if (!QuestTrackingPayload.CHANNEL.equals(channel)
                 && !QuestTrackingPayload.CHANNEL_V2.equals(channel)
-                && !QuestTrackingPayload.CHANNEL_V3.equals(channel)) {
+                && !QuestTrackingPayload.CHANNEL_V3.equals(channel)
+                && !QuestTrackingPayload.CHANNEL_V4.equals(channel)) {
             return;
         }
         UUID uuid = player.getUniqueId();

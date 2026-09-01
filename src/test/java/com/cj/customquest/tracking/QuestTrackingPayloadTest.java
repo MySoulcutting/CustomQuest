@@ -14,10 +14,11 @@ import org.junit.jupiter.api.Test;
 class QuestTrackingPayloadTest {
 
     @Test
-    void prefersV2ThenV1AndOtherwiseDisablesHudTransport() {
-        assertEquals(3, QuestTrackingPayload.preferredVersion(
+    void prefersTheHighestSupportedVersionAndOtherwiseDisablesHudTransport() {
+        assertEquals(4, QuestTrackingPayload.preferredVersion(
                 Set.of(QuestTrackingPayload.CHANNEL, QuestTrackingPayload.CHANNEL_V2,
-                        QuestTrackingPayload.CHANNEL_V3)));
+                        QuestTrackingPayload.CHANNEL_V3, QuestTrackingPayload.CHANNEL_V4)));
+        assertEquals(3, QuestTrackingPayload.preferredVersion(Set.of(QuestTrackingPayload.CHANNEL_V3)));
         assertEquals(2, QuestTrackingPayload.preferredVersion(Set.of(QuestTrackingPayload.CHANNEL_V2)));
         assertEquals(1, QuestTrackingPayload.preferredVersion(Set.of(QuestTrackingPayload.CHANNEL)));
         assertEquals(0, QuestTrackingPayload.preferredVersion(Set.of()));
@@ -28,6 +29,7 @@ class QuestTrackingPayloadTest {
         assertArrayEquals(new byte[]{1, 0}, QuestTrackingPayload.encodeClear());
         assertArrayEquals(new byte[]{2, 0}, QuestTrackingPayload.encodeClearV2());
         assertArrayEquals(new byte[]{3, 0}, QuestTrackingPayload.encodeClearV3());
+        assertArrayEquals(new byte[]{4, 0}, QuestTrackingPayload.encodeClearV4());
     }
 
     @Test
@@ -66,7 +68,7 @@ class QuestTrackingPayloadTest {
     }
 
     @Test
-    void v3MarksTasksWithNavigationTargetsWithoutChangingV1OrV2Flags() throws Exception {
+    void v3AndV4MarkTasksWithNavigationTargetsWithoutChangingV1OrV2Flags() throws Exception {
         QuestTrackingSnapshot.Task task = new QuestTrackingSnapshot.Task(
                 "quest-id", 1L, QuestTrackingSnapshot.TaskType.KILL,
                 true, true, 0xFFFF55, "quest", List.of());
@@ -78,13 +80,39 @@ class QuestTrackingPayloadTest {
                 QuestTrackingPayload.encodeSnapshotV2(snapshot)));
         DataInputStream v3 = new DataInputStream(new ByteArrayInputStream(
                 QuestTrackingPayload.encodeSnapshotV3(snapshot)));
+        DataInputStream v4 = new DataInputStream(new ByteArrayInputStream(
+                QuestTrackingPayload.encodeSnapshotV4(snapshot)));
         v1.skipNBytes(11);
         v2.skipNBytes(11);
         v3.skipNBytes(11);
+        v4.skipNBytes(11);
 
         assertEquals(1, v1.readUnsignedByte());
         assertEquals(1, v2.readUnsignedByte());
         assertEquals(3, v3.readUnsignedByte());
+        assertEquals(3, v4.readUnsignedByte());
+    }
+
+    @Test
+    void preservesBoardTitleAndBoardLineLegacyFormattingOnlyInV4() throws Exception {
+        QuestTrackingSnapshot snapshot = new QuestTrackingSnapshot(1, List.of(
+                new QuestTrackingSnapshot.Task(
+                        "quest-id", 1L, QuestTrackingSnapshot.TaskType.DESCRIBE,
+                        false, true, 0xFFFF55, "&e彩色 §l标题",
+                        List.of(QuestTrackingSnapshot.Line.text("&a绿色 §o目标&r 默认")))
+        ));
+
+        assertEquals(List.of("彩色 标题", "绿色 目标 默认"),
+                readTitleAndLine(QuestTrackingPayload.encodeSnapshot(snapshot)));
+        assertEquals(List.of("彩色 标题", "绿色 目标 默认"),
+                readTitleAndLine(QuestTrackingPayload.encodeSnapshotV2(snapshot)));
+        assertEquals(List.of("彩色 标题", "绿色 目标 默认"),
+                readTitleAndLine(QuestTrackingPayload.encodeSnapshotV3(snapshot)));
+        assertEquals(List.of("&e彩色 §l标题", "&a绿色 §o目标&r 默认"),
+                readTitleAndLine(QuestTrackingPayload.encodeSnapshotV4(snapshot)));
+        assertEquals(
+                "04010000000100000001020200ffff550000000871756573742d6964000000122665e5bda9e889b220c2a76ce6a087e9a29800000001000000001b2661e7bbbfe889b220c2a76fe79baee6a087267220e9bb98e8aea4",
+                HexFormat.of().formatHex(QuestTrackingPayload.encodeSnapshotV4(snapshot)));
     }
 
     @Test
@@ -108,11 +136,33 @@ class QuestTrackingPayloadTest {
 
         byte[] payload = QuestTrackingPayload.encodeSnapshot(new QuestTrackingSnapshot(8, tasks));
         byte[] payloadV2 = QuestTrackingPayload.encodeSnapshotV2(new QuestTrackingSnapshot(8, tasks));
+        byte[] payloadV4 = QuestTrackingPayload.encodeSnapshotV4(new QuestTrackingSnapshot(8, tasks));
         assertTrue(payload.length <= QuestTrackingPayload.MAX_PAYLOAD_BYTES);
         assertTrue(payloadV2.length <= QuestTrackingPayload.MAX_PAYLOAD_BYTES);
+        assertTrue(payloadV4.length <= QuestTrackingPayload.MAX_PAYLOAD_BYTES);
         assertEquals(1, payload[0]);
         assertEquals(1, payload[1]);
         assertEquals(2, payloadV2[0]);
         assertEquals(1, payloadV2[1]);
+        assertEquals(4, payloadV4[0]);
+        assertEquals(1, payloadV4[1]);
+    }
+
+    private static List<String> readTitleAndLine(byte[] payload) throws Exception {
+        DataInputStream input = new DataInputStream(new ByteArrayInputStream(payload));
+        int version = input.readUnsignedByte();
+        input.skipNBytes(11);
+        if (version >= QuestTrackingPayload.VERSION_V2) {
+            input.skipNBytes(4);
+            readText(input);
+        }
+        String title = readText(input);
+        assertEquals(1, input.readInt());
+        input.readUnsignedByte();
+        return List.of(title, readText(input));
+    }
+
+    private static String readText(DataInputStream input) throws Exception {
+        return new String(input.readNBytes(input.readInt()), java.nio.charset.StandardCharsets.UTF_8);
     }
 }

@@ -41,6 +41,7 @@ class QuestTrackingLifecycleSourceTest {
         assertTrue(listener.contains("QuestTrackingPayload.CHANNEL.equals(channel)"));
         assertTrue(listener.contains("QuestTrackingPayload.CHANNEL_V2.equals(channel)"));
         assertTrue(listener.contains("QuestTrackingPayload.CHANNEL_V3.equals(channel)"));
+        assertTrue(listener.contains("QuestTrackingPayload.CHANNEL_V4.equals(channel)"));
         assertTrue(listener.contains("refreshChannel(online)"));
     }
 }

@@ -9,15 +9,17 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Set;
 
-/** SoulCore Fabric 客户端任务追踪通道。 */
+/** SoulCore 客户端任务追踪通道。 */
 public final class QuestTrackingPayload {
 
     public static final String CHANNEL = "soulcore:quest_tracking";
     public static final String CHANNEL_V2 = "soulcore:quest_tracking_v2";
     public static final String CHANNEL_V3 = "soulcore:quest_tracking_v3";
+    public static final String CHANNEL_V4 = "soulcore:quest_tracking_v4";
     public static final int VERSION_V1 = 1;
     public static final int VERSION_V2 = 2;
     public static final int VERSION_V3 = 3;
+    public static final int VERSION_V4 = 4;
     public static final int VERSION = VERSION_V1;
     public static final int ACTION_CLEAR = 0;
     public static final int ACTION_SNAPSHOT = 1;
@@ -31,12 +33,14 @@ public final class QuestTrackingPayload {
         Bukkit.getMessenger().registerOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL);
         Bukkit.getMessenger().registerOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL_V2);
         Bukkit.getMessenger().registerOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL_V3);
+        Bukkit.getMessenger().registerOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL_V4);
     }
 
     public static void unregister() {
         Bukkit.getMessenger().unregisterOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL);
         Bukkit.getMessenger().unregisterOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL_V2);
         Bukkit.getMessenger().unregisterOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL_V3);
+        Bukkit.getMessenger().unregisterOutgoingPluginChannel(BukkitPlugin.getInstance(), CHANNEL_V4);
     }
 
     public static boolean canSend(Player player) {
@@ -48,6 +52,9 @@ public final class QuestTrackingPayload {
     }
 
     static int preferredVersion(Set<String> channels) {
+        if (channels.contains(CHANNEL_V4)) {
+            return VERSION_V4;
+        }
         if (channels.contains(CHANNEL_V3)) {
             return VERSION_V3;
         }
@@ -63,10 +70,18 @@ public final class QuestTrackingPayload {
         }
         try {
             int version = preferredVersion(player);
-            String channel = version == VERSION_V3 ? CHANNEL_V3
-                    : version == VERSION_V2 ? CHANNEL_V2 : CHANNEL;
-            byte[] payload = version == VERSION_V3 ? encodeSnapshotV3(snapshot)
-                    : version == VERSION_V2 ? encodeSnapshotV2(snapshot) : encodeSnapshot(snapshot);
+            String channel = switch (version) {
+                case VERSION_V4 -> CHANNEL_V4;
+                case VERSION_V3 -> CHANNEL_V3;
+                case VERSION_V2 -> CHANNEL_V2;
+                default -> CHANNEL;
+            };
+            byte[] payload = switch (version) {
+                case VERSION_V4 -> encodeSnapshotV4(snapshot);
+                case VERSION_V3 -> encodeSnapshotV3(snapshot);
+                case VERSION_V2 -> encodeSnapshotV2(snapshot);
+                default -> encodeSnapshot(snapshot);
+            };
             player.sendPluginMessage(BukkitPlugin.getInstance(), channel, payload);
             return true;
         } catch (IllegalArgumentException exception) {
@@ -80,10 +95,18 @@ public final class QuestTrackingPayload {
         }
         try {
             int version = preferredVersion(player);
-            String channel = version == VERSION_V3 ? CHANNEL_V3
-                    : version == VERSION_V2 ? CHANNEL_V2 : CHANNEL;
-            byte[] payload = version == VERSION_V3 ? encodeClearV3()
-                    : version == VERSION_V2 ? encodeClearV2() : encodeClear();
+            String channel = switch (version) {
+                case VERSION_V4 -> CHANNEL_V4;
+                case VERSION_V3 -> CHANNEL_V3;
+                case VERSION_V2 -> CHANNEL_V2;
+                default -> CHANNEL;
+            };
+            byte[] payload = switch (version) {
+                case VERSION_V4 -> encodeClearV4();
+                case VERSION_V3 -> encodeClearV3();
+                case VERSION_V2 -> encodeClearV2();
+                default -> encodeClear();
+            };
             player.sendPluginMessage(BukkitPlugin.getInstance(), channel, payload);
             return true;
         } catch (IllegalArgumentException exception) {
@@ -103,6 +126,10 @@ public final class QuestTrackingPayload {
         return new byte[]{VERSION_V3, ACTION_CLEAR};
     }
 
+    static byte[] encodeClearV4() {
+        return new byte[]{VERSION_V4, ACTION_CLEAR};
+    }
+
     static byte[] encodeSnapshot(QuestTrackingSnapshot snapshot) {
         return encodeSnapshot(snapshot, VERSION_V1);
     }
@@ -115,11 +142,16 @@ public final class QuestTrackingPayload {
         return encodeSnapshot(snapshot, VERSION_V3);
     }
 
+    static byte[] encodeSnapshotV4(QuestTrackingSnapshot snapshot) {
+        return encodeSnapshot(snapshot, VERSION_V4);
+    }
+
     private static byte[] encodeSnapshot(QuestTrackingSnapshot snapshot, int version) {
         if (snapshot == null || snapshot.tasks().size() > QuestTrackingSnapshot.MAX_TASKS) {
             throw new IllegalArgumentException("Invalid task tracking snapshot");
         }
-        if (version != VERSION_V1 && version != VERSION_V2 && version != VERSION_V3) {
+        if (version != VERSION_V1 && version != VERSION_V2
+                && version != VERSION_V3 && version != VERSION_V4) {
             throw new IllegalArgumentException("Unsupported task tracking protocol version");
         }
         try {
@@ -132,19 +164,19 @@ public final class QuestTrackingPayload {
             for (QuestTrackingSnapshot.Task task : snapshot.tasks()) {
                 output.writeByte(task.type().protocolId());
                 int taskFlags = task.navigating() ? 1 : 0;
-                if (version == VERSION_V3 && task.navigatable()) {
+                if (version >= VERSION_V3 && task.navigatable()) {
                     taskFlags |= 2;
                 }
                 output.writeByte(taskFlags);
-                if (version == VERSION_V2 || version == VERSION_V3) {
+                if (version >= VERSION_V2) {
                     output.writeInt(task.titleRgb());
                     writeText(output, task.questId());
                 }
-                writeText(output, task.title());
+                writeText(output, protocolText(task.title(), version));
                 output.writeInt(task.lines().size());
                 for (QuestTrackingSnapshot.Line line : task.lines()) {
                     output.writeByte(line.hasProgress() ? 1 : 0);
-                    writeText(output, line.text());
+                    writeText(output, protocolText(line.text(), version));
                     if (line.hasProgress()) {
                         output.writeInt(line.current());
                         output.writeInt(line.total());
@@ -160,6 +192,10 @@ public final class QuestTrackingPayload {
         } catch (IOException exception) {
             throw new IllegalStateException("Could not encode task tracking payload", exception);
         }
+    }
+
+    private static String protocolText(String value, int version) {
+        return version >= VERSION_V4 ? value : QuestTrackingText.plainSingleLine(value);
     }
 
     private static void writeText(DataOutputStream output, String value) throws IOException {

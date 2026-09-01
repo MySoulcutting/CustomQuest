@@ -181,7 +181,7 @@
     通过 NPC 对话 Kether 执行扩展动作，并使用 NPC data 变量实现分支任务与分支对话。
   </p>
   <div class="notice">
-    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.6.6</b>，使用 Paper <b>1.21.1 API</b> 编译，
+    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.6.7</b>，使用 Paper <b>1.21.1 API</b> 编译，
     已在 Paper <b>1.21.11</b> 上验证启动与 SoulCore 导航；其他 1.21.x 版本仍需实服验证。
   </div>
 </section>
@@ -241,7 +241,7 @@
 <section id="install">
   <h2>安装</h2>
   <ol>
-    <li>将构建产物 <code>build/libs/CustomQuest-1.6.6.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
+    <li>将构建产物 <code>build/libs/CustomQuest-1.6.7.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
     <li>按功能选装 <b>MythicMobs</b> 与 <b>Citizens</b>；</li>
     <li>启动服务器（首次启动会联网下载 TabooLib 模块，并生成默认配置与示例文件）；</li>
     <li>按需编辑 <code>plugins/CustomQuest/</code> 下的配置后执行 <code>/cq reload</code>。</li>
@@ -354,7 +354,9 @@
     <tr><td><code>{line}</code></td><td>描述任务的单行内容（仅描述任务内容行可用）</td></tr>
   </table>
   <p class="muted">
-    格式支持 <code>&amp;</code> 颜色代码与 PAPI 占位符；改完后执行 <code>/cq reload</code> 即时生效。
+    格式支持 <code>&amp;</code>/<code>§</code> legacy 颜色、格式、重置码与 PAPI 占位符；SoulCore HUD 通过
+    <code>soulcore:quest_tracking_v4</code> 保留这些样式，v1–v3 兼容通道仍发送纯文本。改完后执行
+    <code>/cq reload</code> 即时生效。
   </p>
 </section>
 
@@ -681,7 +683,7 @@
 <section id="build">
   <h2>构建</h2>
 <pre><code>./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.6.jar</code></pre>
+# 产物：build/libs/CustomQuest-1.6.7.jar</code></pre>
   <ul>
     <li>需要 JDK 21；</li>
     <li>仓库已内置 <code>libs/PlaceholderAPI-2.12.3.jar</code> 与 <code>libs/CitizensAPI-2.0.36-SNAPSHOT.jar</code> 作为离线编译依赖，均不会打入插件 JAR；</li>
@@ -720,7 +722,7 @@
 </section>
 
 <footer>
-  CustomQuest 1.6.6 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
+  CustomQuest 1.6.7 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
 </footer>
 
 </main>

@@ -4,7 +4,7 @@ CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的�
 提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
-当前项目版本为 **1.6.6**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
+当前项目版本为 **1.6.7**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
 
 ## 功能总览
 
@@ -39,12 +39,12 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 | PlaceholderAPI | 必需；构建与联机测试使用 2.12.3 |
 | MythicMobs | 可选；构建使用 5.13.0 |
 | Citizens | 可选；构建使用 2.0.36-SNAPSHOT |
-| SoulCore Fabric | 可选；任务 HUD 优先使用 `soulcore:quest_tracking_v3`（兼容 v2/v1），任务导航使用 `soulcore:quest_navigation`，任务对话使用 `soulcore:quest_dialogue` |
+| SoulCore 客户端 | 可选；任务 HUD 优先使用保留 legacy 样式的 `soulcore:quest_tracking_v4`（兼容 v3/v2/v1），任务导航使用 `soulcore:quest_navigation`，任务对话使用 `soulcore:quest_dialogue` |
 | TabooLib | 6.2.4 维护线；首次启动需下载运行时模块，也可使用离线依赖包 |
 
 ## 安装
 
-1. 将 `CustomQuest-1.6.6.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
+1. 将 `CustomQuest-1.6.7.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
@@ -164,8 +164,9 @@ type: describe                 # 描述任务
 
 ## 任务追踪（SoulCore HUD / 计分板回退）
 
-`scoreboard.enabled` 继续作为任务追踪总开关。新版客户端优先监听带标题颜色和导航按钮状态的
-`soulcore:quest_tracking_v3`；已有 v2 客户端继续使用颜色快照，更旧客户端使用 `soulcore:quest_tracking` v1；
+`scoreboard.enabled` 继续作为任务追踪总开关。新版客户端优先监听保留标题与目标行 legacy 样式的
+`soulcore:quest_tracking_v4`；已有 v3 客户端继续使用导航快照，v2 客户端使用标题强调色快照，
+更旧客户端使用 `soulcore:quest_tracking` v1；
 无通道或快照发送失败时使用原生计分板。`title` 与 `gap-lines` 仅影响回退计分板：
 
 ```yaml
@@ -177,12 +178,13 @@ scoreboard:
 
 回退计分板的每项任务显示内容可在**任务文件里**完全自定义。
 
-SoulCore HUD 使用紧凑、纯文本快照：导航中的任务优先，其余按接取时间与任务 ID 稳定排序，最多显示 5 项。
-标题会应用 `board-title` 与 PAPI；任务级 `board-line` 或目标自己的 `board-line` 会发送格式化后的纯文本。
+SoulCore HUD 使用紧凑的单行文本快照：导航中的任务优先，其余按接取时间与任务 ID 稳定排序，最多显示 5 项。
+标题会应用 `board-title` 与 PAPI；任务级 `board-line` 或目标自己的 `board-line` 会发送变量和 PAPI 替换后的文本。
 未自定义的击杀/提交目标以“击败/收集 + 显示名 + 实时进度”发送，描述任务使用 description；每个任务最多 2 行。
-所有 HUD 文本都会剥离颜色、控制字符并限制为单行与 256 UTF-8 bytes。v2 会另行提取任务 `name`
+v4 保留 `board-title`、`board-line` 和描述行里的标准 `&`/`§` legacy 颜色、格式与重置码；v1–v3 仍会剥离这些格式，
+避免旧客户端直接显示颜色码。所有版本都会移除控制字符，并限制为单行与 256 UTF-8 bytes。v2 及以上会另行提取任务 `name`
 在首个可见字符前实际生效的 `&0`–`&f` 颜色，用于客户端任务标题和目标圆点；未写颜色时客户端回退任务类型色。
-`board-title` 只决定显示文字，不覆盖任务 `name` 的强调色；旧 v1 客户端仍按任务类型上色。
+v4 中 `board-title` 自己的 legacy 样式可覆盖标题文字，目标圆点仍使用任务 `name` 的强调色；旧 v1 客户端仍按任务类型上色。
 
 v3 快照会在 v2 颜色与稳定任务 ID 基础上标记任务是否配置了导航目标。SoulCore 只为存在目标的任务显示“导航”按钮；
 没有目标时完全不显示按钮。玩家点击后，客户端通过 `soulcore:quest_navigation_request` 请求切换导航，
@@ -460,7 +462,7 @@ branches:                     # 从上到下找第一个「条件全部满足」
 
 ```bash
 ./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.6.jar
+# 产物：build/libs/CustomQuest-1.6.7.jar
 ```
 
 - 需要 JDK 21
