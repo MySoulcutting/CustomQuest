@@ -72,7 +72,7 @@ objectives:
 # 击杀事件没有“当前 NPC”上下文，修改分支变量时需要明确填写 Citizens NPC id。
 condition-commands:
   - "message &a你已达成任务条件：&f%quest_name%"
-  - "cq data set %player% 5 stage kill_ready"
+  - "cq data set %player% 5 kill_ready"
 
 # 是否可重复接取
 repeatable: false

@@ -54,6 +54,11 @@ public final class CitizensHook {
         return dataOf(player, npc.getId()).get(key);
     }
 
+    /** 获取玩家在指定 NPC 上的唯一变量值（变量标识使用 NPC ID）。 */
+    public static String getData(Player player, NPC npc) {
+        return npc == null ? null : getData(player, npc, String.valueOf(npc.getId()));
+    }
+
     /** 获取玩家在指定 NPC 上的 data 值（带默认值） */
     public static String getData(Player player, NPC npc, String key, String def) {
         String value = getData(player, npc, key);
@@ -66,10 +71,22 @@ public final class CitizensHook {
         dataOf(player, npc.getId()).put(key, value == null ? "" : value);
     }
 
+    /** 写入玩家在指定 NPC 上的唯一变量值（变量标识使用 NPC ID）。 */
+    public static void setData(Player player, NPC npc, String value) {
+        if (npc == null) return;
+        setData(player, npc, String.valueOf(npc.getId()), value);
+    }
+
     /** 删除玩家在指定 NPC 上的 data 值 */
     public static void removeData(Player player, NPC npc, String key) {
         if (player == null || npc == null) return;
         dataOf(player, npc.getId()).remove(key);
+    }
+
+    /** 删除玩家在指定 NPC 上的唯一变量值。 */
+    public static void removeData(Player player, NPC npc) {
+        if (npc == null) return;
+        removeData(player, npc, String.valueOf(npc.getId()));
     }
 
     /** 玩家在指定 NPC 上是否存在该 data */

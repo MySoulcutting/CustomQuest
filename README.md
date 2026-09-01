@@ -4,7 +4,7 @@ CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的�
 提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
-当前项目版本为 **1.6.8**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
+当前项目版本为 **1.6.9**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
 
 ## 功能总览
 
@@ -44,7 +44,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
 ## 安装
 
-1. 将 `CustomQuest-1.6.8.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
+1. 将 `CustomQuest-1.6.9.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
@@ -125,7 +125,7 @@ objectives:
 # 可用变量：%player% / %quest% / %quest_id% / %quest_name% 以及 PAPI。
 condition-commands:
   - "message &a你已达成任务条件：&f%quest_name%"
-  - "cq data set %player% 5 stage kill_ready"
+  - "cq data set %player% 5 kill_ready"
 
 repeatable: false               # 是否可重复
 cooldown: 3600                  # 重复接取冷却（秒）
@@ -345,7 +345,7 @@ branches:                     # 从上到下找第一个「条件全部满足」
       reject:
         text: "&7我暂时没空"
         kether:
-          - "npc data set stage none"
+          - "npc data set 5 none"
   kill_doing:
     data: stage
     data-value: kill_doing
@@ -398,7 +398,7 @@ branches:                     # 从上到下找第一个「条件全部满足」
 - 选项 Kether 执行时注入变量：`@NpcId`、`@BranchId`、`@Option`（兼容旧序号）、`@OptionId`、`@Player`
 - 单次对话最多发送 8 行、6 个选项，总载荷上限 8192 bytes；标题、行、按钮与悬浮文字会保留合法颜色样式并进行严格 UTF-8/长度控制
 - **NPC data 为玩家级数据**：每个玩家在该 NPC 上有独立的 data 值（持久化保存于 SQLite `data.db`），
-  不同玩家处于不同对话分支；管理指令需指定玩家：`/cq data set <玩家> 5 stage none`
+  不同玩家处于不同对话分支；管理指令需指定玩家：`/cq data set <玩家> 5 none`
 
 ## 自定义 Kether 动作
 
@@ -413,9 +413,9 @@ branches:                     # 从上到下找第一个「条件全部满足」
 | `quest progress <任务ID>` | 返回当前进度（数值） |
 | `quest has <任务ID>` / `quest done <任务ID>` | 是否已接取 / 已完成（布尔） |
 | `dialogue open [npcId]` | 打开 NPC 对话（缺省用当前 `@NpcId`） |
-| `npc data set <key> <value>` | 设置当前玩家在该 NPC 上的 data 变量（持久化） |
-| `npc data get <key>` | 获取当前玩家在该 NPC 上的 data 变量 |
-| `npc data remove <key>` | 删除当前玩家在该 NPC 上的 data 变量 |
+| `npc data set <npcId> <value>` | 设置当前玩家在该 NPC 上的变量值（持久化） |
+| `npc data get <npcId>` | 获取当前玩家在该 NPC 上的变量值 |
+| `npc data remove <npcId>` | 删除当前玩家在该 NPC 上的变量 |
 
 同时支持 TabooLib Kether 全部内置动作（`command`、`message`、`give-item`、`if/else` 等）。`then: |` 可以直接写多行 Kether，例如：
 
@@ -439,9 +439,9 @@ then: |
 | `/cq quest complete <玩家> <任务ID>` | customquest.admin | 强制完成；提交物品任务仍需交齐物品 |
 | `/cq quest nav set <任务ID>` | customquest.admin | 设置任务导航位置为你的当前位置（写回任务文件） |
 | `/cq quest nav remove <任务ID>` | customquest.admin | 移除任务导航位置 |
-| `/cq data set <玩家> <npcId> <key> <value>` | customquest.admin | 设置指定玩家在该 NPC 上的 data 变量 |
-| `/cq data get <玩家> <npcId> <key>` | customquest.admin | 查看指定玩家在该 NPC 上的 data 变量 |
-| `/cq data remove <玩家> <npcId> <key>` | customquest.admin | 删除指定玩家在该 NPC 上的 data 变量 |
+| `/cq data set <玩家> <npcId> <value>` | customquest.admin | 设置指定玩家在该 NPC 上的变量值 |
+| `/cq data get <玩家> <npcId>` | customquest.admin | 查看指定玩家在该 NPC 上的变量值 |
+| `/cq data remove <玩家> <npcId>` | customquest.admin | 删除指定玩家在该 NPC 上的变量 |
 
 ## PAPI 变量
 
@@ -467,7 +467,7 @@ then: |
 
 ```bash
 ./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.8.jar
+# 产物：build/libs/CustomQuest-1.6.9.jar
 ```
 
 - 需要 JDK 21

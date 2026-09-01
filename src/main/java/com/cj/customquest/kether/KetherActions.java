@@ -33,9 +33,9 @@ import java.util.concurrent.CompletableFuture;
  *   <li>{@code quest has <questId>} —— 是否已接取（布尔）</li>
  *   <li>{@code quest done <questId>} —— 是否已完成（布尔）</li>
  *   <li>{@code dialogue open [npcId]} —— 打开 NPC 对话（缺省使用当前 NPC）</li>
- *   <li>{@code npc data set <key> <value>} —— 设置当前 NPC 的 data 变量</li>
- *   <li>{@code npc data get <key>} —— 获取当前 NPC 的 data 变量</li>
- *   <li>{@code npc data remove <key>} —— 删除当前 NPC 的 data 变量</li>
+ *   <li>{@code npc data set <npcId> <value>} —— 设置当前 NPC 的唯一变量值</li>
+ *   <li>{@code npc data get <npcId>} —— 获取当前 NPC 的唯一变量值</li>
+ *   <li>{@code npc data remove <npcId>} —— 删除当前 NPC 的唯一变量值</li>
  * </ul>
  */
 public final class KetherActions {
@@ -295,40 +295,40 @@ public final class KetherActions {
                 String op = reader.nextToken();
                 switch (op.toLowerCase()) {
                     case "set": {
-                        String key = reader.nextToken();
+                        String npcId = reader.nextToken();
                         String value = readRemaining(reader);
                         return new QuestAction<Object>() {
                             @Override
                             public CompletableFuture<Object> process(QuestContext.Frame frame) {
                                 Player player = playerOf(frame);
                                 NPC npc = npcOf(frame);
-                                if (player != null && npc != null && key != null) {
-                                    CitizensHook.setData(player, npc, key, value);
+                                if (player != null && npc != null && npcId != null) {
+                                    CitizensHook.setData(player, npc, value);
                                 }
                                 return CompletableFuture.completedFuture(null);
                             }
                         };
                     }
                     case "get": {
-                        String key = reader.nextToken();
+                        String npcId = reader.nextToken();
                         return questValue(frame -> {
                             Player player = playerOf(frame);
                             NPC npc = npcOf(frame);
-                            if (player == null || npc == null) return "";
-                            String value = CitizensHook.getData(player, npc, key);
+                            if (player == null || npc == null || npcId == null) return "";
+                            String value = CitizensHook.getData(player, npc);
                             return value == null ? "" : value;
                         });
                     }
                     case "remove":
                     case "delete": {
-                        String key = reader.nextToken();
+                        String npcId = reader.nextToken();
                         return new QuestAction<Object>() {
                             @Override
                             public CompletableFuture<Object> process(QuestContext.Frame frame) {
                                 Player player = playerOf(frame);
                                 NPC npc = npcOf(frame);
-                                if (player != null && npc != null && key != null) {
-                                    CitizensHook.removeData(player, npc, key);
+                                if (player != null && npc != null && npcId != null) {
+                                    CitizensHook.removeData(player, npc);
                                 }
                                 return CompletableFuture.completedFuture(null);
                             }

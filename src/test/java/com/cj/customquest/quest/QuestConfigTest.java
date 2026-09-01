@@ -26,7 +26,7 @@ class QuestConfigTest {
                 amount: 2
                 auto-complete: true
                 condition-commands:
-                  - "cq data set %player% 5 stage ready"
+                  - "cq data set %player% 5 ready"
                 commands:
                   - "give %player% diamond 1"
                 kether:
@@ -37,7 +37,7 @@ class QuestConfigTest {
         Quest quest = Quest.load("fallback", config, warnings);
 
         assertNotNull(quest);
-        assertEquals(List.of("cq data set %player% 5 stage ready"), quest.getConditionCommands());
+        assertEquals(List.of("cq data set %player% 5 ready"), quest.getConditionCommands());
         assertTrue(warnings.stream().anyMatch(message -> message.contains("auto-complete, commands, kether")));
 
         String questSource = Files.readString(Path.of(

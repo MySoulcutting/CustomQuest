@@ -417,7 +417,7 @@
 
 <span class="key">condition-commands</span>:                 <span class="cmt"># 每次接取最多执行一次</span>
   - <span class="val">"message &amp;a你已达成任务条件：&amp;f%quest_name%"</span>
-  - <span class="val">"cq data set %player% 5 stage kill_ready"</span>
+  - <span class="val">"cq data set %player% 5 kill_ready"</span>
 
 <span class="key">repeatable</span>: <span class="val">false</span>              <span class="cmt"># 是否可重复</span>
 <span class="key">cooldown</span>: <span class="val">3600</span>                 <span class="cmt"># 重复接取冷却（秒）</span></code></pre>
@@ -496,7 +496,7 @@
   <div class="notice">
     <b>NPC data 是玩家级数据：</b>每个玩家在同一 NPC 上有自己独立的 data 值（持久化保存），
     因此不同玩家会看到不同的对话分支；管理员可用
-    <code>/cq data set &lt;玩家&gt; &lt;npcId&gt; &lt;key&gt; &lt;value&gt;</code> 手动管理。
+    <code>/cq data set &lt;玩家&gt; &lt;npcId&gt; &lt;value&gt;</code> 手动管理。
   </div>
   <div class="notice">
     例如：分支 A 的 <code>data: stage / data-value: none</code> 只在<b>该玩家</b>的 data「stage」为 none 时显示，
@@ -560,7 +560,7 @@
       <span class="key">reject</span>:
         <span class="key">text</span>: <span class="val">"&amp;7我暂时没空"</span>
         <span class="key">kether</span>:
-          - <span class="val">"npc data set stage none"</span>
+          - <span class="val">"npc data set 5 none"</span>
 
   <span class="key">kill_doing</span>:
     <span class="key">data</span>: <span class="val">stage</span>
@@ -620,7 +620,7 @@
     <li>选项 Kether 执行时注入变量：<code>@NpcId</code>、<code>@BranchId</code>、<code>@Option</code>、<code>@OptionId</code>、<code>@Player</code>；</li>
     <li>单次最多 8 行、6 个选项、8192 bytes；选项 ID 必须为 1–64 UTF-8 bytes 且不能包含控制字符；</li>
     <li><b>NPC data 为玩家级数据</b>：每个玩家在该 NPC 上有独立 data 值（持久化保存），不同玩家处于不同对话分支；
-      管理指令需指定玩家：<code>/cq data set &lt;玩家&gt; 5 stage none</code>；</li>
+      管理指令需指定玩家：<code>/cq data set &lt;玩家&gt; 5 none</code>；</li>
     <li>data 变量为 <b>持久化</b> 存储，服务器重启后不丢失。</li>
   </ul>
 </section>
@@ -637,13 +637,13 @@
     <tr><td><code>quest progress &lt;任务ID&gt;</code></td><td>返回当前进度（数值）</td></tr>
     <tr><td><code>quest has &lt;任务ID&gt;</code> / <code>quest done &lt;任务ID&gt;</code></td><td>是否已接取 / 已完成（布尔）</td></tr>
     <tr><td><code>dialogue open [npcId]</code></td><td>打开 NPC 对话（缺省用当前 <code>@NpcId</code>）</td></tr>
-    <tr><td><code>npc data set &lt;key&gt; &lt;value&gt;</code></td><td>设置当前玩家在该 NPC 上的 data 变量（持久化）</td></tr>
-    <tr><td><code>npc data get &lt;key&gt;</code></td><td>获取当前玩家在该 NPC 上的 data 变量</td></tr>
-    <tr><td><code>npc data remove &lt;key&gt;</code></td><td>删除当前玩家在该 NPC 上的 data 变量</td></tr>
+    <tr><td><code>npc data set &lt;npcId&gt; &lt;value&gt;</code></td><td>设置当前玩家在该 NPC 上的变量值（持久化）</td></tr>
+    <tr><td><code>npc data get &lt;npcId&gt;</code></td><td>获取当前玩家在该 NPC 上的变量值</td></tr>
+    <tr><td><code>npc data remove &lt;npcId&gt;</code></td><td>删除当前玩家在该 NPC 上的变量</td></tr>
   </table>
   <p class="muted">
     同时支持 TabooLib Kether 全部内置动作（<code>command</code>、<code>message</code>、<code>give-item</code>、<code>if/else</code> 等），
-    可自由组合实现复杂逻辑（如 <code>if check quest done x then npc data set stage done else message '&amp;c未完成'</code>）。
+    可自由组合实现复杂逻辑（如 <code>if check quest done x then npc data set 5 done else message '&amp;c未完成'</code>）。
   </p>
 </section>
 
@@ -661,9 +661,9 @@
     <tr><td><code>/cq quest complete &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>强制完成；提交物品任务仍需交齐物品</td></tr>
     <tr><td><code>/cq quest nav set &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>设置任务导航位置为你的当前位置（写回任务文件）</td></tr>
     <tr><td><code>/cq quest nav remove &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>移除任务导航位置</td></tr>
-    <tr><td><code>/cq data set &lt;玩家&gt; &lt;npcId&gt; &lt;key&gt; &lt;value&gt;</code></td><td>customquest.admin</td><td>设置指定玩家在该 NPC 上的 data 变量</td></tr>
-    <tr><td><code>/cq data get &lt;玩家&gt; &lt;npcId&gt; &lt;key&gt;</code></td><td>customquest.admin</td><td>查看指定玩家在该 NPC 上的 data 变量</td></tr>
-    <tr><td><code>/cq data remove &lt;玩家&gt; &lt;npcId&gt; &lt;key&gt;</code></td><td>customquest.admin</td><td>删除指定玩家在该 NPC 上的 data 变量</td></tr>
+    <tr><td><code>/cq data set &lt;玩家&gt; &lt;npcId&gt; &lt;value&gt;</code></td><td>customquest.admin</td><td>设置指定玩家在该 NPC 上的变量值</td></tr>
+    <tr><td><code>/cq data get &lt;玩家&gt; &lt;npcId&gt;</code></td><td>customquest.admin</td><td>查看指定玩家在该 NPC 上的变量值</td></tr>
+    <tr><td><code>/cq data remove &lt;玩家&gt; &lt;npcId&gt;</code></td><td>customquest.admin</td><td>删除指定玩家在该 NPC 上的变量</td></tr>
   </table>
 </section>
 

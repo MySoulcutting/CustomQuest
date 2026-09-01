@@ -20,7 +20,7 @@
 4. 将任务文件放入服务器的 `plugins/CustomQuest/quests/`，对话文件放入 `plugins/CustomQuest/dialogues/`。
 5. 在服务器执行 `/cq reload`。
 
-编辑器只生成配置，不会自动连接 Minecraft 服务器，也不会校验 MythicMobs 怪物名、Citizens NPC 是否存在或材料是否适用于当前版本。保存前请确认任务 ID、NPC 数字 ID、节点 ID、材料名和 Kether 动作拼写正确。
+编辑器只生成配置，不会自动连接 Minecraft 服务器，也不会校验 MythicMobs 怪物名、Citizens NPC 是否存在或材料是否适用于当前版本。保存前请确认任务 ID、NPC 数字 ID、节点 ID、材料名和 Kether 动作拼写正确。NPC 变量使用 NPC ID 作为唯一变量标识，不需要填写 key。
 
 ## NPC 对话格式
 

@@ -46,10 +46,10 @@ public final class Messages {
         DEFAULTS.put("dialogue-no-config", "&c该 NPC 没有配置对话。");
         DEFAULTS.put("dialogue-submit-items-invalid", "&c该对话的 submit-items 只能用于提交物品任务，请联系管理员。");
         DEFAULTS.put("npc-not-found", "&cCitizens NPC &e{id} &c不存在。");
-        DEFAULTS.put("npc-data-set", "&a已为玩家 &f{player} &a设置 NPC &f{id} &a的数据 &f{key} &a= &f{value} &a。");
-        DEFAULTS.put("npc-data-get", "&7玩家 &f{player} &7在 NPC &f{id} &7的数据 &f{key} &7= &f{value}");
-        DEFAULTS.put("npc-data-removed", "&a已删除玩家 &f{player} &a在 NPC &f{id} &a的数据 &f{key} &a。");
-        DEFAULTS.put("npc-data-missing", "&7玩家 &f{player} &7在 NPC &f{id} &7没有数据 &f{key} &7。");
+        DEFAULTS.put("npc-data-set", "&a已为玩家 &f{player} &a设置 NPC &f{id} &a的变量值为 &f{value}&a。");
+        DEFAULTS.put("npc-data-get", "&7玩家 &f{player} &7在 NPC &f{id} &7的变量值为 &f{value}");
+        DEFAULTS.put("npc-data-removed", "&a已删除玩家 &f{player} &a在 NPC &f{id} &a上的变量。");
+        DEFAULTS.put("npc-data-missing", "&7玩家 &f{player} &7在 NPC &f{id} &7尚未设置变量。");
         DEFAULTS.put("nav-no-location", "&c任务 &e{name} &c未配置导航位置。");
         DEFAULTS.put("nav-client-required", "&c任务导航需要安装并启用 SoulCore Fabric 客户端 Mod。");
         DEFAULTS.put("nav-start", "&a已开始导航：&f{name}");
@@ -67,8 +67,8 @@ public final class Messages {
         DEFAULTS.put("usage-quest-abandon", "&7/cq quest abandon <玩家> <任务ID>");
         DEFAULTS.put("usage-quest-complete", "&7/cq quest complete <玩家> <任务ID>");
         DEFAULTS.put("usage-quest-nav", "&7/cq quest nav <set|remove> <任务ID>");
-        DEFAULTS.put("usage-data", "&7/cq data <set|get|remove> <玩家> <npcId> <key> [value]");
-        DEFAULTS.put("usage-data-set", "&7/cq data set <玩家> <npcId> <key> <value>");
+        DEFAULTS.put("usage-data", "&7/cq data <set|get|remove> <玩家> <npcId> [value]");
+        DEFAULTS.put("usage-data-set", "&7/cq data set <玩家> <npcId> <value>");
         // 任务列表
         DEFAULTS.put("list-empty", "&7没有已加载的任务。");
         DEFAULTS.put("list-header", "&7任务列表（共 &e{count} &7个）：");
@@ -86,7 +86,8 @@ public final class Messages {
                 "&7/cq quest complete <玩家> <任务ID> &f- 强制完成任务",
                 "&7/cq quest nav set <任务ID> &f- 设置任务导航位置为你的当前位置",
                 "&7/cq quest nav remove <任务ID> &f- 移除任务导航位置",
-                "&7/cq data set|get|remove <玩家> <npcId> <key> [value] &f- 管理玩家级 NPC data 变量"
+                "&7/cq data set <玩家> <npcId> <value> &f- 设置玩家级 NPC 变量",
+                "&7/cq data get|remove <玩家> <npcId> &f- 查看或删除玩家级 NPC 变量"
         ));
     }
 
@@ -114,6 +115,13 @@ public final class Messages {
         for (Map.Entry<String, List<String>> entry : DEFAULT_LISTS.entrySet()) {
             if (!config.contains(entry.getKey())) {
                 config.set(entry.getKey(), entry.getValue());
+                changed = true;
+            }
+        }
+        for (String key : List.of("npc-data-set", "npc-data-get", "npc-data-removed", "npc-data-missing")) {
+            String value = config.getString(key);
+            if (value != null && value.contains("{key}")) {
+                config.set(key, DEFAULTS.get(key));
                 changed = true;
             }
         }

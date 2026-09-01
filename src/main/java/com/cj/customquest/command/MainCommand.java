@@ -235,35 +235,35 @@ public final class MainCommand {
         }
         switch (action) {
             case "set" -> {
-                if (args.length < 6) {
+                if (args.length < 5) {
                     Messages.send(sender, "usage-data-set");
                     return;
                 }
-                String value = String.join(" ", Arrays.copyOfRange(args, 5, args.length));
-                CitizensHook.setData(target, npc, args[4], value);
+                String value = String.join(" ", Arrays.copyOfRange(args, 4, args.length));
+                CitizensHook.setData(target, npc, value);
                 Messages.send(sender, "npc-data-set", Map.of(
-                        "player", target.getName(), "id", npcId, "key", args[4], "value", value));
+                        "player", target.getName(), "id", npcId, "value", value));
             }
             case "get" -> {
-                if (args.length < 5) {
+                if (args.length < 4) {
                     Messages.send(sender, "usage-data");
                     return;
                 }
-                String value = CitizensHook.getData(target, npc, args[4]);
+                String value = CitizensHook.getData(target, npc);
                 if (value == null) {
-                    Messages.send(sender, "npc-data-missing", Map.of("player", target.getName(), "id", npcId, "key", args[4]));
+                    Messages.send(sender, "npc-data-missing", Map.of("player", target.getName(), "id", npcId));
                 } else {
                     Messages.send(sender, "npc-data-get", Map.of(
-                            "player", target.getName(), "id", npcId, "key", args[4], "value", value));
+                            "player", target.getName(), "id", npcId, "value", value));
                 }
             }
             case "remove" -> {
-                if (args.length < 5) {
+                if (args.length < 4) {
                     Messages.send(sender, "usage-data");
                     return;
                 }
-                CitizensHook.removeData(target, npc, args[4]);
-                Messages.send(sender, "npc-data-removed", Map.of("player", target.getName(), "id", npcId, "key", args[4]));
+                CitizensHook.removeData(target, npc);
+                Messages.send(sender, "npc-data-removed", Map.of("player", target.getName(), "id", npcId));
             }
             default -> Messages.send(sender, "usage-data");
         }

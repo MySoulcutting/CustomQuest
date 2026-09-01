@@ -52,4 +52,20 @@ class MainCommandRegistrationSourceTest {
         assertTrue(readme.contains("`/cq quest accept"));
         assertTrue(wiki.contains("/cq quest accept"));
     }
+
+    @Test
+    void npcDataCommandUsesNpcIdAndValueWithoutKey() throws Exception {
+        String command = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/command/MainCommand.java"));
+        String messages = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/util/Messages.java"));
+
+        assertTrue(command.contains("String value = String.join(\" \", Arrays.copyOfRange(args, 4, args.length))"));
+        assertTrue(command.contains("CitizensHook.setData(target, npc, value)"));
+        assertTrue(command.contains("CitizensHook.getData(target, npc)"));
+        assertTrue(command.contains("CitizensHook.removeData(target, npc)"));
+        assertTrue(messages.contains("/cq data set <玩家> <npcId> <value>"));
+        assertFalse(messages.contains("<npcId> <key>"));
+        assertTrue(messages.contains("的变量值为 &f{value}"));
+    }
 }

@@ -25,7 +25,7 @@ class ExampleConfigurationTest {
 
         assertEquals(List.of(
                 "message &a你已达成任务条件：&f%quest_name%",
-                "cq data set %player% 5 stage kill_ready"), kill.getConditionCommands());
+                "cq data set %player% 5 kill_ready"), kill.getConditionCommands());
         assertEquals(List.of(
                 "message &a你已达成任务条件：&f%quest_name%"), submit.getConditionCommands());
         assertTrue(dialogue.getBranches().stream()
