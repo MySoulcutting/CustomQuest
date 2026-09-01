@@ -23,14 +23,13 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
     // MythicMobs
     maven("https://mvn.lumine.io/repository/maven-public/")
-    // Citizens
-    maven("https://repo.citizensnpcs.co")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
     compileOnly("io.lumine:Mythic-Dist:5.13.0")
-    compileOnly("net.citizensnpcs:citizens-main:2.0.36-SNAPSHOT")
+    // Citizens 官方仓库的旧快照 JAR 已返回 403，使用仓库内 API JAR 保证 CI 可复现构建。
+    compileOnly(files("libs/CitizensAPI-2.0.36-SNAPSHOT.jar"))
     // PlaceholderAPI 已下载到 libs/ 目录（若不需要 PAPI 支持可删除此行）
     compileOnly(files("libs/PlaceholderAPI-2.12.3.jar"))
 

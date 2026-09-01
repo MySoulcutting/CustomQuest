@@ -684,7 +684,7 @@
 # 产物：build/libs/CustomQuest-1.6.6.jar</code></pre>
   <ul>
     <li>需要 JDK 21；</li>
-    <li>仓库已内置 <code>libs/PlaceholderAPI-2.12.3.jar</code> 作为编译依赖（也可改用仓库坐标）；</li>
+    <li>仓库已内置 <code>libs/PlaceholderAPI-2.12.3.jar</code> 与 <code>libs/CitizensAPI-2.0.36-SNAPSHOT.jar</code> 作为离线编译依赖，均不会打入插件 JAR；</li>
     <li>Gradle Wrapper 固定使用 8.14.3；</li>
     <li>TabooLib 6.2.4-c90a237 通过 TabooLib Gradle 插件内置/重定向，服务端无需单独安装 TabooLib 插件；</li>
     <li>更换 Paper 版本：修改 <code>build.gradle.kts</code> 中的 <code>paper-api</code> 版本号后重新构建。</li>

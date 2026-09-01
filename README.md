@@ -465,7 +465,7 @@ branches:                     # 从上到下找第一个「条件全部满足」
 
 - 需要 JDK 21
 - Gradle Wrapper 固定使用 Gradle 8.14.3
-- 本仓库已内置 `libs/PlaceholderAPI-2.12.3.jar` 作为编译依赖（也可改用仓库坐标）
+- 本仓库已内置 `libs/PlaceholderAPI-2.12.3.jar` 与 `libs/CitizensAPI-2.0.36-SNAPSHOT.jar` 作为离线编译依赖；二者均不会打入插件 JAR
 - TabooLib `6.2.4-c90a237` 通过 TabooLib Gradle 插件内置/重定向，服务端无需单独安装 TabooLib 插件
 
 ## 网页文档
