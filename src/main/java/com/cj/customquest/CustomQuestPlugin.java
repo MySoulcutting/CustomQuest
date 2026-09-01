@@ -67,11 +67,11 @@ public class CustomQuestPlugin extends Plugin {
         // 消息
         Messages.load(dataFolder);
 
-        // SoulCore Fabric 客户端导航通道
+        // SoulCore NeoForge 客户端导航通道
         NavigationPayload.register();
-        // SoulCore Fabric 客户端任务追踪通道
+        // SoulCore NeoForge 客户端任务追踪通道
         QuestTrackingPayload.register();
-        // SoulCore Fabric 客户端任务对话通道
+        // SoulCore NeoForge 客户端任务对话通道
         DialoguePayload.register();
 
         // 挂钩

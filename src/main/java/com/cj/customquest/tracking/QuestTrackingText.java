@@ -19,12 +19,25 @@ final class QuestTrackingText {
         encodeUtf8Strict(source);
         String colored = ChatColor.translateAlternateColorCodes('&', source);
         String stripped = ChatColor.stripColor(colored);
-        if (stripped == null || stripped.isEmpty()) {
+        return sanitizeSingleLine(stripped);
+    }
+
+    static String legacySingleLine(String value) {
+        String source = value == null ? "" : value;
+        encodeUtf8Strict(source);
+        String colored = ChatColor.translateAlternateColorCodes('&', source);
+        String limited = sanitizeSingleLine(colored);
+        return limited.endsWith(String.valueOf(ChatColor.COLOR_CHAR))
+                ? limited.substring(0, limited.length() - 1) : limited;
+    }
+
+    private static String sanitizeSingleLine(String value) {
+        if (value == null || value.isEmpty()) {
             return "";
         }
-        StringBuilder singleLine = new StringBuilder(stripped.length());
-        for (int offset = 0; offset < stripped.length(); ) {
-            int codePoint = stripped.codePointAt(offset);
+        StringBuilder singleLine = new StringBuilder(value.length());
+        for (int offset = 0; offset < value.length(); ) {
+            int codePoint = value.codePointAt(offset);
             boolean lineSeparator = Character.getType(codePoint) == Character.LINE_SEPARATOR
                     || Character.getType(codePoint) == Character.PARAGRAPH_SEPARATOR;
             singleLine.appendCodePoint(Character.isISOControl(codePoint) || lineSeparator ? ' ' : codePoint);

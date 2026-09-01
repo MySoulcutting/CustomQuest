@@ -39,10 +39,21 @@ class QuestTrackingSnapshotTest {
         assertEquals("标题 下一行 末尾", task.title());
         assertTrue(task.lines().getFirst().text().getBytes(StandardCharsets.UTF_8).length
                 <= QuestTrackingPayload.MAX_TEXT_BYTES);
-        assertTrue(task.lines().getFirst().text().indexOf('§') < 0);
+        assertTrue(task.lines().getFirst().text().startsWith("§b"));
         assertTrue(task.lines().getFirst().text().codePoints().allMatch(codePoint -> !Character.isISOControl(codePoint)));
         assertTrue(task.lines().getFirst().text().indexOf('\u2028') < 0);
         assertTrue(task.title().chars().noneMatch(value -> Character.isSurrogate((char) value)));
+    }
+
+    @Test
+    void preservesLegacyFormattingForTaskLinesButKeepsTitlesPlain() {
+        QuestTrackingSnapshot.Task task = new QuestTrackingSnapshot.Task(
+                "quest", 1L, QuestTrackingSnapshot.TaskType.DESCRIBE, false,
+                "&e标题", List.of(QuestTrackingSnapshot.Line.text("&a绿色 §l粗体&r 默认 &z")));
+
+        assertEquals("标题", task.title());
+        assertEquals("§a绿色 §l粗体§r 默认 &z", task.lines().getFirst().text());
+        assertEquals("x".repeat(254), QuestTrackingText.legacySingleLine("x".repeat(254) + "&a"));
     }
 
     @Test

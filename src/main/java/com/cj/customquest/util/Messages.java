@@ -51,7 +51,7 @@ public final class Messages {
         DEFAULTS.put("npc-data-removed", "&a已删除玩家 &f{player} &a在 NPC &f{id} &a的数据 &f{key} &a。");
         DEFAULTS.put("npc-data-missing", "&7玩家 &f{player} &7在 NPC &f{id} &7没有数据 &f{key} &7。");
         DEFAULTS.put("nav-no-location", "&c任务 &e{name} &c未配置导航位置。");
-        DEFAULTS.put("nav-client-required", "&c任务导航需要安装并启用 SoulCore Fabric 客户端 Mod。");
+        DEFAULTS.put("nav-client-required", "&c任务导航需要安装并启用 SoulCore NeoForge 客户端 Mod。");
         DEFAULTS.put("nav-start", "&a已开始导航：&f{name}");
         DEFAULTS.put("nav-cancelled", "&7已取消导航。");
         DEFAULTS.put("nav-arrived", "&a已到达导航目标：&f{name}");

@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** SoulCore Fabric 客户端导航通道。 */
+/** SoulCore NeoForge 客户端导航通道。 */
 public final class NavigationPayload {
 
     public static final String CHANNEL = "soulcore:quest_navigation";

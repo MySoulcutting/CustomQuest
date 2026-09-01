@@ -24,13 +24,13 @@ name: "&6&l主线剧情"
 
 # 任务内容（计分板上逐行展示，支持 & 颜色与 PAPI）
 description:
-  - "&7第一章 · 初入荒野"
-  - "&7找老杰克聊聊吧"
+  - "&a第一章 &f· &e初入荒野"
+  - "§b找老杰克§d聊聊吧"
 
 # 任务类型：describe（描述任务，无目标，仅指令完成）
 type: describe
 
-# 导航目标（可选）：SoulCore Fabric 客户端在此渲染信标光柱、悬浮标签与距离
+# 导航目标（可选）：SoulCore NeoForge 客户端在此渲染信标光柱、悬浮标签与距离
 # navigate: "world,100,64,200"      # 世界名,x,y,z
 
 repeatable: false

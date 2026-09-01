@@ -16,7 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 任务导航系统：服务端维护当前任务与到达判定，SoulCore Fabric 客户端负责全部视觉渲染。
+ * 任务导航系统：服务端维护当前任务与到达判定，SoulCore NeoForge 客户端负责全部视觉渲染。
  */
 public final class NavigationManager {
 

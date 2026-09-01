@@ -9,7 +9,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Set;
 
-/** SoulCore Fabric 客户端任务追踪通道。 */
+/** SoulCore NeoForge 客户端任务追踪通道。 */
 public final class QuestTrackingPayload {
 
     public static final String CHANNEL = "soulcore:quest_tracking";
