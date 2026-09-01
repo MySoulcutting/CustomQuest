@@ -330,6 +330,10 @@ public final class QuestManager {
                 return false;
             }
         }
+        // 在扣除前记录条件达成，避免扣除物品后背包状态变化导致无法触发提示。
+        if (!force && quest.getType() == QuestType.SUBMIT_ITEM && acceptedProgress != null) {
+            updateConditionState(player, quest, acceptedProgress);
+        }
         // 即使是管理员强制完成，提交物品任务也必须实际交出配置要求的物品。
         if (itemPlan != null) {
             if (!itemPlan.successful()) {
@@ -343,11 +347,6 @@ public final class QuestManager {
         data.getCompleted().put(quest.getId(), System.currentTimeMillis());
         NavigationManager.getInstance().stopIfNavigating(player, quest.getId());
         QuestBoard.getInstance().update(player);
-
-        // 物品任务只在 NPC 成功校验并扣物后触发一次达成动作。
-        if (!force && quest.getType() == QuestType.SUBMIT_ITEM && acceptedProgress != null) {
-            triggerConditionReached(player, quest, acceptedProgress);
-        }
 
         Messages.sendTo(player, "quest-completed", Map.of("name", TextUtil.parse(player, quest.getName())));
         if (quest.isRepeatable()) {
@@ -392,7 +391,7 @@ public final class QuestManager {
 
     // ---------------- 条件达成 ----------------
 
-    /** 背包事件使用：仅在玩家有提交物品任务时安排下一 tick 追踪刷新。 */
+    /** 背包事件使用：在玩家有提交物品任务时安排下一 tick 条件校准与追踪刷新。 */
     public void queueInventoryRefresh(Player player) {
         for (String questId : storage.get(player).getAccepted().keySet()) {
             Quest quest = getQuest(questId);
@@ -419,12 +418,13 @@ public final class QuestManager {
         });
     }
 
-    /** 校准玩家已接击杀任务的条件状态；物品任务只允许在 NPC 提交时达成。 */
+    /** 校准玩家已接任务的条件状态。 */
     public void checkConditionStates(Player player) {
         for (Map.Entry<String, QuestProgress> entry
                 : new ArrayList<>(storage.get(player).getAccepted().entrySet())) {
             Quest quest = getQuest(entry.getKey());
-            if (quest != null && quest.getType() == QuestType.KILL_MOB) {
+            if (quest != null && (quest.getType() == QuestType.KILL_MOB
+                    || quest.getType() == QuestType.SUBMIT_ITEM)) {
                 updateConditionState(player, quest, entry.getValue());
             }
         }

@@ -19,7 +19,7 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 
 /**
- * 背包内容变化后刷新提交物品任务追踪；任务条件只在 NPC 提交时检查。
+ * 背包内容变化后校准提交物品任务条件并刷新任务追踪。
  * 所有事件由 QuestManager 合并到下一 tick，确保读取到操作完成后的背包状态。
  */
 public final class InventoryListener implements Listener {

@@ -100,15 +100,17 @@ class QuestConfigTest {
     }
 
     @Test
-    void itemConditionTriggersOnlyAfterSuccessfulNpcDeduction() throws Exception {
+    void itemConditionTriggersBeforeNpcDeductionAndDuringInventoryCalibration() throws Exception {
         String manager = Files.readString(Path.of(
                 "src/main/java/com/cj/customquest/quest/QuestManager.java"));
+        int conditionCheck = manager.indexOf("updateConditionState(player, quest, acceptedProgress)");
         int applyItems = manager.indexOf("applyItemRemoval(itemContents, itemPlan)");
         int completed = manager.indexOf("data.getCompleted().put(quest.getId()", applyItems);
-        int trigger = manager.indexOf("triggerConditionReached(player, quest, acceptedProgress)", completed);
 
-        assertTrue(applyItems >= 0 && applyItems < completed && completed < trigger);
+        assertTrue(conditionCheck >= 0 && conditionCheck < applyItems && applyItems < completed);
+        assertTrue(manager.contains("quest.getType() == QuestType.SUBMIT_ITEM"));
         assertTrue(manager.contains("quest.getType() == QuestType.KILL_MOB"));
-        assertFalse(manager.contains("quest.getType() != QuestType.DESCRIBE"));
+        assertTrue(manager.contains("quest.getType() == QuestType.KILL_MOB"));
+        assertFalse(manager.contains("物品任务只在 NPC 成功校验并扣物后触发一次达成动作"));
     }
 }

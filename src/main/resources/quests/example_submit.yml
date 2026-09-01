@@ -56,7 +56,7 @@ objectives:
   - item: "IRON_INGOT:10"
     name: "&f铁锭"
 
-# 物品任务只在 NPC 成功校验并扣除物品后执行一次达成动作。
+# 背包满足全部物品目标时执行一次。NPC 提交前会再次校验并扣除物品。
 condition-commands:
   - "message &a你已达成任务条件：&f%quest_name%"
 
