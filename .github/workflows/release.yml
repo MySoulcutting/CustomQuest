@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Java 21
         uses: actions/setup-java@v6
@@ -36,6 +38,9 @@ jobs:
       - name: Build and test
         run: ./gradlew --no-daemon clean build --stacktrace
 
+      - name: Generate release notes
+        run: .github/scripts/generate-release-notes.sh "$GITHUB_REF_NAME" release-notes.md
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,5 +49,6 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             "build/libs/CustomQuest-$VERSION.jar" \
             --verify-tag \
-            --generate-notes \
+            --notes-file release-notes.md \
+            --fail-on-no-commits \
             --title "CustomQuest $VERSION"
