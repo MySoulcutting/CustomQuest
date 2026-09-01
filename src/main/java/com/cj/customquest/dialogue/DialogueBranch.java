@@ -160,10 +160,17 @@ public final class DialogueBranch {
                 result.add(parseCompactSubmitItem(text, null, null, optionId, index));
             } else if (entry instanceof Map<?, ?> values) {
                 String item = stringValue(values.get("item"));
+                String neigeItem = blankToNull(stringValue(values.get("neige-item")));
+                if (neigeItem == null) {
+                    neigeItem = blankToNull(stringValue(values.get("ni")));
+                }
                 String display = blankToNull(stringValue(values.get("name")));
                 String itemName = blankToNull(stringValue(values.get("item-name")));
                 Object amount = values.get("amount");
-                if (amount == null) {
+                if (neigeItem != null) {
+                    result.add(QuestObjective.neigeItem(neigeItem,
+                            parsePositiveAmount(amount == null ? 1 : amount, optionId, index), display, itemName));
+                } else if (amount == null) {
                     result.add(parseCompactSubmitItem(item, display, itemName, optionId, index));
                 } else {
                     Material material = parseMaterial(item, optionId, index);
@@ -187,7 +194,16 @@ public final class DialogueBranch {
         if (separator <= 0 || separator == value.length() - 1) {
             throw submitItemError(optionId, index, "格式应为 MATERIAL:数量");
         }
-        Material material = parseMaterial(value.substring(0, separator), optionId, index);
+        String prefix = value.substring(0, separator).trim();
+        if (prefix.equalsIgnoreCase("neige-item") || prefix.equalsIgnoreCase("ni")) {
+            String[] parts = value.split(":", 3);
+            if (parts.length < 3 || parts[1].isBlank()) {
+                throw submitItemError(optionId, index, "NI 简写格式应为 neige-item:物品ID:数量");
+            }
+            return QuestObjective.neigeItem(parts[1].trim(),
+                    parsePositiveAmount(parts[2], optionId, index), display, itemName);
+        }
+        Material material = parseMaterial(prefix, optionId, index);
         int amount = parsePositiveAmount(value.substring(separator + 1), optionId, index);
         return QuestObjective.item(material, amount, display, itemName);
     }

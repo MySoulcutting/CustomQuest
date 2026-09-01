@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-/** SoulCore NeoForge 客户端任务对话通道。 */
+/** SoulCore Fabric 客户端任务对话通道。 */
 public final class DialoguePayload {
 
     public static final String CHANNEL = "soulcore:quest_dialogue";

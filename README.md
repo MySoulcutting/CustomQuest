@@ -4,7 +4,7 @@ CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的�
 提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
-当前项目版本为 **1.6.5**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
+当前项目版本为 **1.6.4**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
 
 ## 功能总览
 
@@ -15,6 +15,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 - ✅ **SoulCore 交互式任务对话**：支持对应通道的客户端使用带按钮的任务对话界面；其他客户端自动回退到可点击聊天选项
 - ✅ **对话内接取任务指令**：对话选项直接配置 `accept-quest: <任务ID>` 即可接取任务（无需写 Kether），
   并可配置 `accept-data` 在接取成功后自动设置 NPC data 变量；Kether 写法 `quest accept <任务ID> [data <key> <value>]` 同样支持
+- ✅ **NeigeItems 物品提交**：提交物品目标支持 `neige-item` / `ni` 配置，并按 NI ID 校验和扣除；未安装 NeigeItems 时普通 Bukkit 物品功能不受影响
 - ✅ **NPC 原子提交任务**：对话选项通过 `submit-quest` 实时校验任务条件，并可用 `submit-items` 覆盖该按钮实际扣除清单；物品任务成功时才一次性扣除背包物品，
   随后的选项 Kether 仅在提交成功后执行，任务完成本身不修改 NPC data
 - ✅ **条件达成与任务完成分离**：击杀目标达成或物品在 NPC 成功提交时提示“你已达成任务条件”，并可执行 `condition-commands` 推进 NPC data；
@@ -26,7 +27,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
   - `describe` —— 描述任务（无目标，仅展示；只能通过 `/cq quest complete` 指令强制完成），
     用于在任务追踪 HUD/计分板上显示任务标题与任务内容
 - ✅ **双通道任务追踪**：SoulCore 客户端使用最多 5 项的任务 HUD；无对应通道或发包失败时自动回退右侧计分板
-- ✅ **任务导航**：CustomQuest 下发目标，SoulCore NeoForge 客户端渲染原版信标光柱、无地形遮挡圆环与高对比度任务名/距离悬浮标签；不显示固定底部导航 HUD
+- ✅ **任务导航**：CustomQuest 下发目标，SoulCore Fabric 客户端渲染原版信标光柱、无地形遮挡圆环与高对比度任务名/距离悬浮标签；不显示固定底部导航 HUD
 - ✅ **Kether 脚本动作**：NPC 对话选项可执行 TabooLib Kether 脚本
 
 ## 环境要求
@@ -38,16 +39,16 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 | PlaceholderAPI | 必需；构建与联机测试使用 2.12.3 |
 | MythicMobs | 可选；构建使用 5.13.0 |
 | Citizens | 可选；构建使用 2.0.36-SNAPSHOT |
-| SoulCore NeoForge | 可选；任务 HUD 优先使用 `soulcore:quest_tracking_v3`（兼容 v2/v1），任务导航使用 `soulcore:quest_navigation`，任务对话使用 `soulcore:quest_dialogue` |
+| SoulCore Fabric | 可选；任务 HUD 优先使用 `soulcore:quest_tracking_v3`（兼容 v2/v1），任务导航使用 `soulcore:quest_navigation`，任务对话使用 `soulcore:quest_dialogue` |
 | TabooLib | 6.2.4 维护线；首次启动需下载运行时模块，也可使用离线依赖包 |
 
 ## 安装
 
-1. 将 `CustomQuest-1.6.5.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
+1. 将 `CustomQuest-1.6.4.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
-5. 使用客户端任务 HUD、导航或交互式任务对话的玩家还需安装匹配 Minecraft 版本、支持对应 SoulCore 通道的 NeoForge Mod；服务端不需要 SoulCore Paper 插件。未安装时任务追踪自动回退计分板，NPC 对话自动回退到可点击聊天选项。
+5. 使用客户端任务 HUD、导航或交互式任务对话的玩家还需安装匹配 Minecraft 版本、支持对应 SoulCore 通道的 Fabric Mod；服务端不需要 SoulCore Paper 插件。未安装时任务追踪自动回退计分板，NPC 对话自动回退到可点击聊天选项。
 
 ### 离线安装（服务器无法访问 repo.tabooproject.org 时）
 
@@ -114,6 +115,10 @@ objectives:
 #   - item: "DIAMOND:5"
 #     name: "&b大钻石"            # 自定义显示名（可选）
 #     item-name: "&b大钻石"       # 可选：只收集显示名为该文字的物品（铁砧改名）
+# NeigeItems 物品：使用 NI 配置中的物品 ID
+#   - neige-item: example_sword
+#     amount: 2
+#     name: "&b示例剑"
 #     board-line: "&b收集 {target} &e{current}&7/&e{total}"  # 可选：计分板行格式
 
 # 达成条件时执行一次。message 为聊天提示；也可执行控制台指令修改 NPC data。
@@ -173,10 +178,10 @@ scoreboard:
 回退计分板的每项任务显示内容可在**任务文件里**完全自定义。
 
 SoulCore HUD 使用紧凑、纯文本快照：导航中的任务优先，其余按接取时间与任务 ID 稳定排序，最多显示 5 项。
-标题会应用 `board-title` 与 PAPI；任务级 `board-line` 或目标自己的 `board-line` 会发送保留 legacy 颜色与格式码的单行文本。
+标题会应用 `board-title` 与 PAPI；任务级 `board-line` 或目标自己的 `board-line` 会发送格式化后的纯文本。
 未自定义的击杀/提交目标以“击败/收集 + 显示名 + 实时进度”发送，描述任务使用 description；每个任务最多 2 行。
-HUD 标题会剥离颜色并由 v2/v3 另行传递任务 `name` 在首个可见字符前实际生效的 `&0`–`&f`
-颜色，用于客户端任务标题和目标圆点；目标正文保留 `&`/`§` legacy 颜色、格式与重置码。所有文本仍会清理控制字符、限制为单行与 256 UTF-8 bytes；未写标题颜色时客户端回退任务类型色。
+所有 HUD 文本都会剥离颜色、控制字符并限制为单行与 256 UTF-8 bytes。v2 会另行提取任务 `name`
+在首个可见字符前实际生效的 `&0`–`&f` 颜色，用于客户端任务标题和目标圆点；未写颜色时客户端回退任务类型色。
 `board-title` 只决定显示文字，不覆盖任务 `name` 的强调色；旧 v1 客户端仍按任务类型上色。
 
 v3 快照会在 v2 颜色与稳定任务 ID 基础上标记任务是否配置了导航目标。SoulCore 只为存在目标的任务显示“导航”按钮；
@@ -268,7 +273,7 @@ objectives:
 
 在 SoulCore HUD 中点击任务的「导航」按钮后：
 
-- 需要客户端安装支持 `soulcore:quest_navigation` 通道的 SoulCore NeoForge Mod；未安装时不会建立导航
+- 需要客户端安装支持 `soulcore:quest_navigation` 通道的 SoulCore Fabric Mod；未安装时不会建立导航
 - Mod 在目标位置渲染原版信标材质光柱、圆环和随距离缩放的任务名/距离悬浮标签
 - 靠近目标（5 米内）后提示到达并自动结束导航
 - **同一时间只能导航一个任务**：导航第二个任务会自动取消第一个；再次点击按钮（显示为「取消导航」）取消导航
@@ -455,18 +460,13 @@ branches:                     # 从上到下找第一个「条件全部满足」
 
 ```bash
 ./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.5.jar
+# 产物：build/libs/CustomQuest-1.6.4.jar
 ```
 
 - 需要 JDK 21
 - Gradle Wrapper 固定使用 Gradle 8.14.3
 - 本仓库已内置 `libs/PlaceholderAPI-2.12.3.jar` 作为编译依赖（也可改用仓库坐标）
 - TabooLib `6.2.4-c90a237` 通过 TabooLib Gradle 插件内置/重定向，服务端无需单独安装 TabooLib 插件
-
-### GitHub Actions
-
-- 推送 `master`、Pull Request 或手动运行 `Build` 时，会使用 Java 21 执行完整 `clean build` 并上传插件 JAR Artifact。
-- 推送与 `build.gradle.kts` 版本完全一致的 `v*` 标签时，`Release` 会重新构建并创建 GitHub Release，上传对应版本的 `CustomQuest-<version>.jar`。
 
 ## 网页文档
 

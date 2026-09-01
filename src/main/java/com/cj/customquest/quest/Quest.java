@@ -149,9 +149,18 @@ public final class Quest {
             }
             return QuestObjective.kill(mob, amount, displayName, boardLine);
         }
-        String itemText = strOf(values.get("item"));
         String displayName = strOf(values.get("name"));
         String itemName = strOf(values.get("item-name"));
+        String neigeItem = blankToNull(strOf(values.get("neige-item")));
+        if (neigeItem == null) {
+            neigeItem = blankToNull(strOf(values.get("ni")));
+        }
+        if (neigeItem != null) {
+            int amount = intOfValue(values.get("amount"), 1);
+            if (amount < 1) amount = 1;
+            return QuestObjective.neigeItem(neigeItem, amount, displayName, itemName, boardLine);
+        }
+        String itemText = strOf(values.get("item"));
         QuestObjective objective = QuestObjective.parseItem(itemText, displayName, itemName, boardLine);
         if (objective == null) {
             errors.add("任务 " + questId + ": " + display + " 无法解析物品 '" + itemText + "'（格式: 材料:数量）");

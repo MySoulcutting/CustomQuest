@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.cj.customquest"
-version = "1.6.5"
+version = "1.6.4"
 
 // TabooLib 版本（6.2.4 维护线，修复了 6.2.2 的类加载/Gson 序列化冲突）
 val TABOOLIB_VERSION = "6.2.4-c90a237"
@@ -24,15 +24,13 @@ repositories {
     // MythicMobs
     maven("https://mvn.lumine.io/repository/maven-public/")
     // Citizens
-    maven("https://maven.citizensnpcs.co/repo")
+    maven("https://repo.citizensnpcs.co")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
     compileOnly("io.lumine:Mythic-Dist:5.13.0")
-    compileOnly("net.citizensnpcs:citizens-main:2.0.36-SNAPSHOT") {
-        exclude(group = "*", module = "*")
-    }
+    compileOnly("net.citizensnpcs:citizens-main:2.0.36-SNAPSHOT")
     // PlaceholderAPI 已下载到 libs/ 目录（若不需要 PAPI 支持可删除此行）
     compileOnly(files("libs/PlaceholderAPI-2.12.3.jar"))
 
@@ -62,6 +60,7 @@ taboolib {
             name("PlaceholderAPI")
             name("MythicMobs").optional(true)
             name("Citizens").optional(true)
+            name("NeigeItems").optional(true)
         }
     }
 }

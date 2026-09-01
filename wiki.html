@@ -181,7 +181,7 @@
     通过 NPC 对话 Kether 执行扩展动作，并使用 NPC data 变量实现分支任务与分支对话。
   </p>
   <div class="notice">
-    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.6.5</b>，使用 Paper <b>1.21.1 API</b> 编译，
+    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.6.4</b>，使用 Paper <b>1.21.1 API</b> 编译，
     已在 Paper <b>1.21.11</b> 上验证启动与 SoulCore 导航；其他 1.21.x 版本仍需实服验证。
   </div>
 </section>
@@ -233,7 +233,7 @@
     <tr><td>PlaceholderAPI</td><td>必需；构建与测试使用 2.12.3</td></tr>
     <tr><td>MythicMobs</td><td>可选；构建使用 5.13.0</td></tr>
     <tr><td>Citizens</td><td>可选；构建使用 2.0.36-SNAPSHOT</td></tr>
-    <tr><td>SoulCore NeoForge</td><td>可选；任务 HUD、导航与交互式 NPC 对话客户端</td></tr>
+    <tr><td>SoulCore Fabric</td><td>可选；任务 HUD、导航与交互式 NPC 对话客户端</td></tr>
     <tr><td>TabooLib</td><td>6.2.4 维护线；首次启动需下载运行时模块</td></tr>
   </table>
 </section>
@@ -241,7 +241,7 @@
 <section id="install">
   <h2>安装</h2>
   <ol>
-    <li>将构建产物 <code>build/libs/CustomQuest-1.6.5.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
+    <li>将构建产物 <code>build/libs/CustomQuest-1.6.4.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
     <li>按功能选装 <b>MythicMobs</b> 与 <b>Citizens</b>；</li>
     <li>启动服务器（首次启动会联网下载 TabooLib 模块，并生成默认配置与示例文件）；</li>
     <li>按需编辑 <code>plugins/CustomQuest/</code> 下的配置后执行 <code>/cq reload</code>。</li>
@@ -362,7 +362,7 @@
   <h2>任务导航</h2>
   <p>在 SoulCore HUD 中点击任务的「导航」按钮后：</p>
   <ul>
-    <li>需要客户端安装支持 <code>soulcore:quest_navigation</code> 通道的 SoulCore NeoForge Mod；未安装时不会建立导航</li>
+    <li>需要客户端安装支持 <code>soulcore:quest_navigation</code> 通道的 SoulCore Fabric Mod；未安装时不会建立导航</li>
     <li>Mod 在目标位置渲染原版信标材质光柱、圆环和随距离缩放的任务名/距离悬浮标签</li>
     <li>靠近目标（5 米内）提示到达并自动结束导航</li>
     <li><b>同一时间只能导航一个任务</b>：导航第二个任务会自动取消第一个；再次点击按钮（显示为「取消导航」）取消导航</li>
@@ -390,7 +390,7 @@
 
 <span class="key">type</span>: <span class="val">kill_mob</span>                  <span class="cmt"># kill_mob / submit_item</span>
 
-<span class="cmt"># ---- 导航目标（可选）：SoulCore NeoForge 客户端在此渲染导航光柱 ----</span>
+<span class="cmt"># ---- 导航目标（可选）：SoulCore Fabric 客户端在此渲染导航光柱 ----</span>
 <span class="cmt"># navigate: "world,100,64,200"   # 世界名,x,y,z</span>
 
 <span class="cmt"># ---- 任务追踪完全自定义（可选，留空 = 使用插件内置默认格式） ----</span>
@@ -681,15 +681,13 @@
 <section id="build">
   <h2>构建</h2>
 <pre><code>./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.5.jar</code></pre>
+# 产物：build/libs/CustomQuest-1.6.4.jar</code></pre>
   <ul>
     <li>需要 JDK 21；</li>
     <li>仓库已内置 <code>libs/PlaceholderAPI-2.12.3.jar</code> 作为编译依赖（也可改用仓库坐标）；</li>
     <li>Gradle Wrapper 固定使用 8.14.3；</li>
     <li>TabooLib 6.2.4-c90a237 通过 TabooLib Gradle 插件内置/重定向，服务端无需单独安装 TabooLib 插件；</li>
     <li>更换 Paper 版本：修改 <code>build.gradle.kts</code> 中的 <code>paper-api</code> 版本号后重新构建。</li>
-    <li>推送 <code>master</code>、Pull Request 或手动运行 <code>Build</code> 时，Actions 会执行完整构建并上传插件 JAR Artifact。</li>
-    <li>推送与工程版本一致的 <code>v*</code> 标签时，<code>Release</code> 会重新构建、创建 GitHub Release 并上传对应版本 JAR。</li>
   </ul>
 </section>
 
@@ -722,7 +720,7 @@
 </section>
 
 <footer>
-  CustomQuest 1.6.5 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
+  CustomQuest 1.6.4 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
 </footer>
 
 </main>

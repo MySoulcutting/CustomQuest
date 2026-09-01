@@ -98,7 +98,7 @@ public record QuestTrackingSnapshot(int totalTaskCount, List<Task> tasks) {
 
     public record Line(String text, boolean hasProgress, int current, int total) {
         public Line {
-            text = QuestTrackingText.legacySingleLine(text);
+            text = QuestTrackingText.plainSingleLine(text);
             if (hasProgress && (current < 0 || total <= 0)) {
                 throw new IllegalArgumentException("Task progress requires a non-negative current and positive total");
             }

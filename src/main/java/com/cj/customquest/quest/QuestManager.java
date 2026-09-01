@@ -2,6 +2,7 @@ package com.cj.customquest.quest;
 
 import com.cj.customquest.board.QuestBoard;
 import com.cj.customquest.navigation.NavigationManager;
+import com.cj.customquest.hook.NeigeItemsHook;
 import com.cj.customquest.util.Messages;
 import com.cj.customquest.util.TextUtil;
 import org.bukkit.Bukkit;
@@ -466,7 +467,12 @@ public final class QuestManager {
 
     /** 物品是否匹配目标：材料一致，且（若配置了 item-name）显示名一致。 */
     private static boolean matchesItem(InventorySlot item, QuestObjective objective) {
-        if (item.material() != objective.getMaterial()) {
+        if (objective.getNeigeItemId() != null) {
+            String itemId = NeigeItemsHook.getItemId(item.itemStack());
+            if (!objective.getNeigeItemId().equalsIgnoreCase(itemId)) {
+                return false;
+            }
+        } else if (item.material() != objective.getMaterial()) {
             return false;
         }
         String requiredName = objective.getItemName();
@@ -494,7 +500,7 @@ public final class QuestManager {
             }
             String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName()
                     ? item.getItemMeta().getDisplayName() : null;
-            snapshot[i] = new InventorySlot(item.getType(), displayName, item.getAmount());
+            snapshot[i] = new InventorySlot(item.getType(), displayName, item.getAmount(), item.clone());
         }
         return snapshot;
     }
@@ -595,7 +601,7 @@ public final class QuestManager {
         for (MissingItem missing : missingItems) {
             QuestObjective objective = missing.objective();
             RequirementKey key = new RequirementKey(
-                    objective.getMaterial(), objective.getAmount(), objective.getItemName());
+                    objective.getMaterial(), objective.getNeigeItemId(), objective.getAmount(), objective.getItemName());
             groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(missing);
         }
         return groups;
@@ -622,7 +628,7 @@ public final class QuestManager {
     static record MissingItem(QuestObjective objective, int have, int missing) {
     }
 
-    private record RequirementKey(org.bukkit.Material material, int amount, String itemName) {
+    private record RequirementKey(org.bukkit.Material material, String neigeItemId, int amount, String itemName) {
     }
 
     static record SubmissionPlans(ItemRemovalPlan objectivePlan, ItemRemovalPlan deductionPlan) {
@@ -631,7 +637,10 @@ public final class QuestManager {
         }
     }
 
-    static record InventorySlot(org.bukkit.Material material, String displayName, int amount) {
+    static record InventorySlot(org.bukkit.Material material, String displayName, int amount, ItemStack itemStack) {
+        InventorySlot(org.bukkit.Material material, String displayName, int amount) {
+            this(material, displayName, amount, null);
+        }
     }
 
     /**

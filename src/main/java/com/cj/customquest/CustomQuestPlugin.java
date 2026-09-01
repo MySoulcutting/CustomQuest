@@ -8,6 +8,7 @@ import com.cj.customquest.dialogue.DialoguePayload;
 import com.cj.customquest.expansion.QuestExpansion;
 import com.cj.customquest.hook.CitizensHook;
 import com.cj.customquest.hook.MythicMobsHook;
+import com.cj.customquest.hook.NeigeItemsHook;
 import com.cj.customquest.hook.PapiHook;
 import com.cj.customquest.kether.KetherActions;
 import com.cj.customquest.listener.InventoryListener;
@@ -67,16 +68,17 @@ public class CustomQuestPlugin extends Plugin {
         // 消息
         Messages.load(dataFolder);
 
-        // SoulCore NeoForge 客户端导航通道
+        // SoulCore Fabric 客户端导航通道
         NavigationPayload.register();
-        // SoulCore NeoForge 客户端任务追踪通道
+        // SoulCore Fabric 客户端任务追踪通道
         QuestTrackingPayload.register();
-        // SoulCore NeoForge 客户端任务对话通道
+        // SoulCore Fabric 客户端任务对话通道
         DialoguePayload.register();
 
         // 挂钩
         PapiHook.init();
         MythicMobsHook.init();
+        NeigeItemsHook.init();
         CitizensHook.init();
 
         // 导航系统（需在任务加载前创建，以便 reload 时注册导航目标）
