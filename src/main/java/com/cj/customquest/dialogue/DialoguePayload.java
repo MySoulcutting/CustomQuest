@@ -41,7 +41,8 @@ public final class DialoguePayload {
     static final int MAX_OPTIONS = 6;
     static final int MAX_OPTION_ID_BYTES = 64;
     static final int MAX_OPTION_TEXT_BYTES = 256;
-    static final int MAX_HOVER_BYTES = 256;
+    /** 保留旧版封包中的空悬浮字段，避免旧客户端因字段错位无法解析。 */
+    static final int MAX_LEGACY_TOOLTIP_BYTES = 256;
     private static final int HEADER_BYTES = 18;
 
     private DialoguePayload() {
@@ -113,7 +114,7 @@ public final class DialoguePayload {
             for (Option option : snapshot.options()) {
                 writeText(output, option.id(), MAX_OPTION_ID_BYTES, false);
                 writeText(output, option.text(), MAX_OPTION_TEXT_BYTES, false);
-                writeText(output, option.hover(), MAX_HOVER_BYTES, true);
+                writeText(output, "", MAX_LEGACY_TOOLTIP_BYTES, true);
             }
             output.flush();
             byte[] payload = bytes.toByteArray();
@@ -258,7 +259,6 @@ public final class DialoguePayload {
                 throw new IllegalArgumentException("Dialogue snapshot contains duplicate option IDs");
             }
             validateText(strictUtf8(option.text()), option.text(), MAX_OPTION_TEXT_BYTES, false);
-            validateText(strictUtf8(option.hover()), option.hover(), MAX_HOVER_BYTES, true);
         }
     }
 
@@ -340,7 +340,7 @@ public final class DialoguePayload {
         }
     }
 
-    public record Option(String id, String text, String hover) {
+    public record Option(String id, String text) {
     }
 
     record Request(int action, UUID sessionId, String optionId) {

@@ -99,7 +99,6 @@ public final class DialogueBranch {
                     throw new IllegalArgumentException("对话选项 ID 必须为 1-64 UTF-8 bytes 且不能包含控制字符: " + key);
                 }
                 String text = optionSection.getString("text", "");
-                String hover = optionSection.getString("hover", "");
                 // 接取任务快捷指令（无需写 Kether）
                 String acceptQuest = normalizeQuestId(optionSection.getString("accept-quest", null));
                 // 接取成功后设置的 NPC data 变量（"key=value"）
@@ -115,11 +114,9 @@ public final class DialogueBranch {
                 if (!submitItems.isEmpty() && submitQuest == null) {
                     throw new IllegalArgumentException("对话选项配置 submit-items 时必须同时配置 submit-quest: " + key);
                 }
-                List<String> kether = optionSection.isString("kether")
-                        ? new ArrayList<>(List.of(optionSection.getString("kether")))
-                        : optionSection.getStringList("kether");
+                List<String> kether = readActionList(optionSection.get("kether"));
                 boolean close = optionSection.getBoolean("close", true);
-                options.add(new DialogueOption(key, text, hover, acceptQuest, acceptData,
+                options.add(new DialogueOption(key, text, acceptQuest, acceptData,
                         submitQuest, submitItems, kether, close));
             }
         }
@@ -133,6 +130,22 @@ public final class DialogueBranch {
             return null;
         }
         return value.trim();
+    }
+
+    private static List<String> readActionList(Object value) {
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .flatMap(item -> splitActions(String.valueOf(item)).stream())
+                    .toList();
+        }
+        return value == null ? List.of() : splitActions(String.valueOf(value));
+    }
+
+    private static List<String> splitActions(String value) {
+        return value.lines()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .toList();
     }
 
     /** 严格解析 NPC 提交按钮的物品覆盖清单；配置错误时拒绝加载整个对话文件。 */

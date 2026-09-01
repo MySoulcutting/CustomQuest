@@ -48,8 +48,8 @@ class DialogueNodeFormatTest {
         assertEquals("Next", first.getOptions().getFirst().getText());
         assertEquals("option_1", first.getOptions().getFirst().getId());
         assertEquals("example_kill", first.getOptions().getFirst().getAcceptQuest());
-        assertTrue(first.getOptions().getFirst().getKether().stream()
-                .anyMatch(line -> line.contains("goto suxing2")));
+        assertEquals(java.util.List.of("npc data set 5 1", "goto suxing2"),
+                first.getOptions().getFirst().getKether());
 
         DialogueBranch second = dialogue.getBranches().get(1);
         assertEquals("option_1", second.getOptions().getFirst().getId());

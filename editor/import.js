@@ -146,10 +146,8 @@
     const then = importedThen(option.then ?? option.kether);
     return {
       text: String(option.reply ?? option.text ?? ''),
-      hover: String(option.hover ?? ''),
-      mode: option['accept-quest'] || option['accept-data'] ? 'accept' : option['submit-quest'] ? 'submit' : 'none',
+      mode: option['accept-quest'] ? 'accept' : option['submit-quest'] ? 'submit' : 'none',
       quest: String(option['accept-quest'] || option['submit-quest'] || ''),
-      acceptData: textList(option['accept-data']),
       submitItems: textList(option['submit-items']).map(importedSubmitItem),
       kether: then.kether,
       goto: then.goto,
@@ -173,7 +171,6 @@
     const npcValue = data['npc id'] ?? data.npc;
     d.npcIds = Array.isArray(npcValue) ? npcValue.join(',') : String(npcValue ?? '');
     d.title = String(data.title ?? '');
-    d.defaultData = Object.entries(data['default-data'] || {}).map(([key, value]) => `${key}=${value ?? ''}`);
     if (data.when || data['npc id'] != null) {
       const conditions = {};
       (Array.isArray(data.when) ? data.when : []).forEach(entry => {

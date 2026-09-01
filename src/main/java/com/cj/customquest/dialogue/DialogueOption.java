@@ -13,8 +13,6 @@ public final class DialogueOption {
     private final String id;
     /** 选项文本（支持 & 颜色与 PAPI） */
     private final String text;
-    /** 悬浮提示 */
-    private final String hover;
     /** 接取任务快捷指令：任务 ID（null 表示不接取） */
     private final String acceptQuest;
     /** 接取成功后设置的 NPC data 变量（"key=value" 列表） */
@@ -28,11 +26,10 @@ public final class DialogueOption {
     /** 点击后是否关闭对话（预留） */
     private final boolean close;
 
-    public DialogueOption(String id, String text, String hover, String acceptQuest, List<String> acceptData,
+    public DialogueOption(String id, String text, String acceptQuest, List<String> acceptData,
                           String submitQuest, List<QuestObjective> submitItems, List<String> kether, boolean close) {
         this.id = id;
         this.text = text;
-        this.hover = hover;
         this.acceptQuest = acceptQuest;
         this.acceptData = acceptData;
         this.submitQuest = submitQuest;
@@ -42,9 +39,9 @@ public final class DialogueOption {
     }
 
     /** 兼容未使用提交快捷字段的旧调用方。 */
-    public DialogueOption(String id, String text, String hover, String acceptQuest, List<String> acceptData,
+    public DialogueOption(String id, String text, String acceptQuest, List<String> acceptData,
                           List<String> kether, boolean close) {
-        this(id, text, hover, acceptQuest, acceptData, null, List.of(), kether, close);
+        this(id, text, acceptQuest, acceptData, null, List.of(), kether, close);
     }
 
     public String getId() {
@@ -53,10 +50,6 @@ public final class DialogueOption {
 
     public String getText() {
         return text;
-    }
-
-    public String getHover() {
-        return hover;
     }
 
     public String getAcceptQuest() {

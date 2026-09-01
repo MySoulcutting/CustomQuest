@@ -9,9 +9,7 @@ import com.cj.customquest.util.Messages;
 import com.cj.customquest.util.TextUtil;
 import net.citizensnpcs.api.npc.NPC;
 import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.api.chat.hover.content.Text;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
@@ -180,9 +178,7 @@ public final class DialogueManager {
             if (text.isEmpty()) {
                 continue;
             }
-            String hover = DialoguePayload.sanitizeDisplayText(
-                    TextUtil.parse(player, option.getHover()), DialoguePayload.MAX_HOVER_BYTES);
-            options.add(new DialoguePayload.Option(option.getId(), text, hover));
+            options.add(new DialoguePayload.Option(option.getId(), text));
         }
 
         DialogueSessionStore.Session session = sessions.open(
@@ -211,10 +207,6 @@ public final class DialogueManager {
             component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
                     "/" + CLICK_COMMAND + " click " + snapshot.sessionId() + " "
                             + DialoguePayload.encodeCommandOptionId(option.id())));
-            if (!option.hover().isEmpty()) {
-                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                        new Text(TextComponent.fromLegacyText(option.hover()))));
-            }
             player.spigot().sendMessage(component);
         }
     }

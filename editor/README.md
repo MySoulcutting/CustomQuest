@@ -46,9 +46,25 @@ suxing1:
         goto suxing2
 ```
 
-`when` 按配置顺序检测。按钮的“点击后跳转节点”会生成 `goto <节点 ID>`；也可以直接在 Kether 动作中填写 `goto <节点 ID>`。旧版 `npc`、`default-data`、`branches` 格式仍可导入和加载。
+`when` 按配置顺序检测。按钮的“点击后跳转节点”会生成 `goto <节点 ID>`；也可以直接在 Kether 动作中填写 `goto <节点 ID>`。旧版 `npc`、`branches` 格式仍可导入和加载。
 
 按钮不需要配置 `id`，插件会按照每个节点中的按钮顺序自动生成内部编号；旧配置中已有的 `id` 仍然可以继续读取。
+
+按钮的 `then: |` 支持 YAML 多行格式，每一行都会作为 Kether 动作执行，例如：
+
+```yaml
+then: |
+  command inline "lp user {{ sender }} permission set 战士" as console
+  command inline "class forceprofess {{ sender }} 战士" as console
+```
+
+编辑器不再提供“接取成功后设置数据（key=value）”字段。需要推进 NPC 对话变量时，请直接在按钮的 `then: |` 中填写 `npc data set`，例如：
+
+```yaml
+then: |
+  npc data set 5 1
+  goto suxing2
+```
 ## 读取已有配置
 
 点击“导入 YAML”，选择现有的任务文件或对话文件。编辑器会根据 `branches`、`npc id` 或 `when` 自动识别类型，并将字段载入对应表单；修改后可继续复制或下载。

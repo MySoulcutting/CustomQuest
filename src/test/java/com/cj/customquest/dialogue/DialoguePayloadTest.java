@@ -24,7 +24,7 @@ class DialoguePayloadTest {
                 SESSION,
                 "老杰克",
                 List.of("你好"),
-                List.of(new DialoguePayload.Option("accept", "接受", "接取任务"))
+                List.of(new DialoguePayload.Option("accept", "接受"))
         );
 
         assertEquals(
@@ -33,7 +33,7 @@ class DialoguePayloadTest {
                         + "0100000006e4bda0e5a5bd"
                         + "0100000006616363657074"
                         + "00000006e68ea5e58f97"
-                        + "0000000ce68ea5e58f96e4bbbbe58aa1",
+                        + "00000000",
                 HexFormat.of().formatHex(DialoguePayload.encodeOpen(snapshot))
         );
     }
@@ -105,8 +105,7 @@ class DialoguePayloadTest {
                 .range(0, DialoguePayload.MAX_OPTIONS)
                 .mapToObj(index -> new DialoguePayload.Option(
                         "i".repeat(DialoguePayload.MAX_OPTION_ID_BYTES - 1) + index,
-                        "T".repeat(DialoguePayload.MAX_OPTION_TEXT_BYTES),
-                        "H".repeat(DialoguePayload.MAX_HOVER_BYTES)))
+                        "T".repeat(DialoguePayload.MAX_OPTION_TEXT_BYTES)))
                 .toList();
         DialoguePayload.Snapshot maximum = new DialoguePayload.Snapshot(
                 SESSION, "Q".repeat(DialoguePayload.MAX_TITLE_BYTES), lines, options);
@@ -125,7 +124,7 @@ class DialoguePayloadTest {
                         SESSION,
                         "title",
                         List.of(),
-                        List.of(new DialoguePayload.Option("accept", "", "")))));
+                        List.of(new DialoguePayload.Option("accept", "")))));
         assertThrows(IllegalArgumentException.class, () -> DialoguePayload.encodeOpen(
                 new DialoguePayload.Snapshot(
                         SESSION,
@@ -138,21 +137,14 @@ class DialoguePayloadTest {
                         "title",
                         List.of(),
                         List.of(new DialoguePayload.Option(
-                                "i".repeat(DialoguePayload.MAX_OPTION_ID_BYTES + 1), "text", "")))));
+                                "i".repeat(DialoguePayload.MAX_OPTION_ID_BYTES + 1), "text")))));
         assertThrows(IllegalArgumentException.class, () -> DialoguePayload.encodeOpen(
                 new DialoguePayload.Snapshot(
                         SESSION,
                         "title",
                         List.of(),
                         List.of(new DialoguePayload.Option(
-                                "accept", "T".repeat(DialoguePayload.MAX_OPTION_TEXT_BYTES + 1), "")))));
-        assertThrows(IllegalArgumentException.class, () -> DialoguePayload.encodeOpen(
-                new DialoguePayload.Snapshot(
-                        SESSION,
-                        "title",
-                        List.of(),
-                        List.of(new DialoguePayload.Option(
-                                "accept", "text", "H".repeat(DialoguePayload.MAX_HOVER_BYTES + 1))))));
+                                "accept", "T".repeat(DialoguePayload.MAX_OPTION_TEXT_BYTES + 1))))));
         assertThrows(IllegalArgumentException.class, () -> DialoguePayload.encodeOpen(
                 new DialoguePayload.Snapshot(
                         SESSION,
@@ -177,15 +169,15 @@ class DialoguePayloadTest {
                         List.of(),
                         java.util.stream.IntStream.rangeClosed(0, DialoguePayload.MAX_OPTIONS)
                                 .mapToObj(index -> new DialoguePayload.Option(
-                                        "option-" + index, "text", "")).toList())));
+                                        "option-" + index, "text")).toList())));
         assertThrows(IllegalArgumentException.class, () -> DialoguePayload.encodeOpen(
                 new DialoguePayload.Snapshot(
                         SESSION,
                         "title",
                         List.of(),
                         List.of(
-                                new DialoguePayload.Option("same", "one", ""),
-                                new DialoguePayload.Option("same", "two", "")))));
+                                new DialoguePayload.Option("same", "one"),
+                                new DialoguePayload.Option("same", "two")))));
     }
 
     @Test

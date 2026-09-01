@@ -336,7 +336,6 @@ branches:                     # 从上到下找第一个「条件全部满足」
     options:                  # 最多向客户端显示 6 个可点击选项
       accept:                 # 稳定选项 ID：1-64 UTF-8 bytes，不能包含控制字符
         text: "&a&l[接受任务] &a清剿荒野"
-        hover: "&7点击接受任务"              # 悬浮提示（可选）
         # ---- 接取任务快捷指令（推荐）----
         accept-quest: example_kill           # 点击后接取任务（不校验前置条件）
         accept-data: "stage=kill_doing"      # 接取成功后设置 NPC data 变量（可列表）
@@ -418,7 +417,13 @@ branches:                     # 从上到下找第一个「条件全部满足」
 | `npc data get <key>` | 获取当前玩家在该 NPC 上的 data 变量 |
 | `npc data remove <key>` | 删除当前玩家在该 NPC 上的 data 变量 |
 
-同时支持 TabooLib Kether 全部内置动作（`command`、`message`、`give-item`、`if/else` 等）。
+同时支持 TabooLib Kether 全部内置动作（`command`、`message`、`give-item`、`if/else` 等）。`then: |` 可以直接写多行 Kether，例如：
+
+```yaml
+then: |
+  command inline "lp user {{ sender }} permission set 战士" as console
+  command inline "class forceprofess {{ sender }} 战士" as console
+```
 
 ## 指令
 
