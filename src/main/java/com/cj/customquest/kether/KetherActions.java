@@ -64,6 +64,8 @@ public final class KetherActions {
         registry.registerAction("dialogue", dialogueParser());
         registry.registerAction("dialogueopen", dialogueOpenParser());
         registry.registerAction("dialogue-open", dialogueOpenParser());
+        registry.registerAction("goto", dialogueGotoParser());
+        registry.registerAction("close", dialogueCloseParser());
         registry.registerAction("npc", npcDataParser());
     }
 
@@ -245,6 +247,40 @@ public final class KetherActions {
                 return CompletableFuture.completedFuture(null);
             }
         };
+    }
+
+    private static QuestActionParser dialogueGotoParser() {
+        return QuestActionParser.of(reader -> {
+            String branchId = readRemaining(reader).trim();
+            if (branchId.length() >= 2 && branchId.startsWith("\"") && branchId.endsWith("\"")) {
+                branchId = branchId.substring(1, branchId.length() - 1);
+            }
+            String target = branchId;
+            return new QuestAction<>() {
+                @Override
+                public CompletableFuture<Object> process(QuestContext.Frame frame) {
+                    Player player = playerOf(frame);
+                    int npcId = varInt(frame, "@NpcId", -1);
+                    if (player != null && npcId >= 0 && !target.isBlank()) {
+                        DialogueManager.getInstance().openDialogue(player, npcId, target);
+                    }
+                    return CompletableFuture.completedFuture(null);
+                }
+            };
+        });
+    }
+
+    private static QuestActionParser dialogueCloseParser() {
+        return QuestActionParser.of(reader -> new QuestAction<>() {
+            @Override
+            public CompletableFuture<Object> process(QuestContext.Frame frame) {
+                Player player = playerOf(frame);
+                if (player != null) {
+                    DialogueManager.getInstance().closeDialogue(player);
+                }
+                return CompletableFuture.completedFuture(null);
+            }
+        });
     }
 
     // ---------------- npc data set/get/remove ----------------

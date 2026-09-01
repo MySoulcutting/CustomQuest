@@ -117,11 +117,17 @@ public final class DialogueManager {
 
     private MatchedDialogue findBranch(Player player, NPC npc, List<DialogueConfig> configs,
                                        String forceBranchId) {
+        if (forceBranchId != null) {
+            for (DialogueConfig config : configs) {
+                DialogueBranch target = findBranch(config, forceBranchId);
+                if (target != null) {
+                    return new MatchedDialogue(config, target);
+                }
+            }
+            return null;
+        }
         for (DialogueConfig config : configs) {
             for (DialogueBranch candidate : config.getBranches()) {
-                if (forceBranchId != null && !candidate.getId().equalsIgnoreCase(forceBranchId)) {
-                    continue;
-                }
                 if (candidate.isDefaultBranch()) {
                     continue;
                 }
@@ -284,6 +290,14 @@ public final class DialogueManager {
     /** 玩家退出时清理，不再向即将断开的客户端发包。 */
     public void remove(Player player) {
         sessions.remove(player.getUniqueId());
+    }
+
+    /** 关闭玩家当前对话；供 Kether 的 close 动作使用。 */
+    public void closeDialogue(Player player) {
+        DialogueSessionStore.Session session = sessions.remove(player.getUniqueId());
+        if (session != null) {
+            DialoguePayload.sendClose(player, session.id());
+        }
     }
 
     /** 插件卸载时关闭所有在线对话并清空会话。 */

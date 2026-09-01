@@ -1,155 +1,61 @@
 # ================================================================
-# 示例 NPC 对话配置
+# 节点式 NPC 对话示例
 # 文件位置：plugins/CustomQuest/dialogues/
-# 一个文件绑定一个或多个 Citizens NPC（通过 npc 字段）
 # ================================================================
 
-# 绑定的 Citizens NPC id（可用单个数字或列表 [5, 6]）
-npc: 5
+title: "&8[&6任务发布官&8] &fNPC"
+npc id: '5'
 
-# 对话标题（打开对话时显示在顶部）
-title: "&8[&6任务发布官&8] &f老杰克"
+# 按顺序检测条件，打开对应的对话节点。
+# profile data 不存在时就是 null；变量按玩家独立保存。
+when:
+  - if: "check profile data 5== null"
+    open: suxing1
+  - if: "check profile data 5== 1 , %player_level% >= 10"
+    open: suxing2
 
-# ----------------------------------------------------------------
-# 首次对话初始化（可选，推荐）：玩家第一次点击该 NPC 时，
-# 若某个 data 变量不存在，则自动写入默认值（玩家级，互不影响）。
-# 这样分支条件（如 data: stage / data-value: none）在第一次对话时就能生效。
-# ----------------------------------------------------------------
-default-data:
-  stage: none
+suxing1:
+  npc:
+    - '你好，旅行者！'
+    - '我是任务发布官。'
+  format: generic
+  player:
+    - reply: '&f你有什么任务'
+      then: |
+        npc data set 5 1
+        goto suxing2
+      accept-quest: example_kill
+    - reply: '好的，稍后见'
+      then: |
+        close
 
-# ----------------------------------------------------------------
-# 分支对话：玩家点击 NPC 后，从上到下查找第一个「条件全部满足」的分支显示。
-# 通过 NPC 的 data 变量（data / data-value）或 PAPI 变量（papi）触发不同分支，
-# data 值不同 -> 显示不同对话 -> 用于接取任务 / 推进剧情。
-#
-# 重要：NPC data 变量为「玩家级」数据 —— 每个玩家在该 NPC 上有自己独立的 data 值，
-# 因此不同玩家会处于不同的对话分支，互不影响（持久化保存）。
-#
-# 可用指令管理（需指定玩家）：
-#   /cq data set <玩家> 5 stage none
-#   /cq data get <玩家> 5 stage
-# 也可以在对话选项的 Kether 动作里修改（自动作用于当前玩家）：
-#   npc data set stage doing
-# ----------------------------------------------------------------
-branches:
+suxing2:
+  npc:
+    - '&a欢迎回来，旅行者！'
+    - '&f你已经达到要求，可以继续任务。'
+  format: generic
+  player:
+    - reply: '&e提交物品任务'
+      then: |
+        npc data set 5 2
+        goto submit_item
+      accept-quest: example_submit
+    - reply: '&7稍后见'
+      then: |
+        close
 
-  # 完成分支使用任务状态判断，不在任务完成时修改 NPC data。
-  all_done:
-    papi:
-      - "%customquest_done_example_submit% == true"
-    lines:
-      - "&f感谢你的帮助！"
-    options:
-      ok:
-        text: "&7&l[离开] &7再见"
-        kether: []
-
-  # 击杀任务完成后提供下一项任务；分支优先于仍为 kill_ready 的 data。
-  kill_done_offer:
-    papi:
-      - "%customquest_done_example_kill% == true"
-      - "%customquest_done_example_submit% == false"
-      - "%customquest_has_example_submit% == false"
-    lines:
-      - "&f还需要一些矿物，你愿意帮我收集吗？"
-    options:
-      accept:
-        text: "&a&l[接受收集任务]"
-        accept-quest: example_submit
-        accept-data: "stage=item_collecting"
-
-  # ============ 分支一：初始状态（stage == none 时显示） ============
-  initial:
-    # NPC data 条件（写法一：key + data-value）
-    data: stage
-    data-value: none
-    # 也可以写成列表形式（写法二）：
-    # data:
-    #   - "stage==none"
-    #   - "level>=1"
-
-    # PAPI 条件（可选）
-    papi:
-      - "%player_level% >= 3"
-
-    # 对话内容
-    lines:
-      - "&f你好，旅行者！我这里有件麻烦事……"
-      - "&f骷髅王最近在荒野上横行，你能帮我去讨伐它吗？"
-
-    # 对话选项：键名（accept/reject）是客户端回传的稳定选项 ID，
-    # 必须为 1-64 UTF-8 bytes 且不能包含控制字符；单次最多显示前 6 个有效选项。
-    # 支持 SoulCore 对话通道时显示交互按钮，否则自动回退到可点击聊天内容。
-    options:
-      accept:
-        text: "&a&l[接受任务] &a清剿荒野"
-        hover: "&7点击接受任务"
-        # ---- 接取任务快捷指令（推荐写法）----
-        # 点击后直接接取任务（不校验前置条件），
-        # 接取成功后自动设置「该玩家」在此 NPC 上的 data 变量，推进分支对话
-        accept-quest: example_kill
-        accept-data: "stage=kill_doing"
-        # 也可继续追加 Kether 动作（仅在接取成功后执行）：
-        # kether:
-        #   - "message '&a祝你顺利！'"
-      reject:
-        text: "&7&l[拒绝] &7我暂时没空"
-        hover: "&7点击拒绝"
-        kether:
-          - "npc data set stage none"
-
-  # ============ 分支二：击杀任务进行中 ============
-  kill_doing:
-    data: stage
-    data-value: kill_doing
-    lines:
-      - "&f怎么样？怪物清剿了吗？&7（进度 &e%customquest_progress_example_kill%&7）"
-    options:
-      check:
-        text: "&e&l[检查进度] &e我的进度如何？"
-        hover: "&7查看进度"
-        kether:
-          - "tell &7当前进度：quest progress example_kill"
-      leave:
-        text: "&7继续努力"
-        kether: []
-
-  # condition-commands 把 stage 改为 kill_ready 后，NPC 才显示击杀任务提交页。
-  kill_ready:
-    data: stage
-    data-value: kill_ready
-    lines:
-      - "&a你已经达成清剿条件，我来为你登记。"
-    options:
-      submit:
-        text: "&a&l[提交击杀任务]"
-        hover: "&7再次校验进度后完成任务"
-        submit-quest: example_kill
-
-  item_collecting:
-    data: stage
-    data-value: item_collecting
-    lines:
-      - "&f把要求的物品放在主背包后交给我。"
-    options:
-      submit:
-        text: "&e&l[检查并提交物品]"
-        hover: "&7物品足够时一次性扣除并完成任务"
-        submit-quest: example_submit
-        # 可选：覆盖这个按钮实际检测并扣除的物品；不写则沿用任务 objectives。
-        submit-items:
-          - item: "DIAMOND:5"
-            name: "&b大钻石"
-            item-name: "&b大钻石"
-          - "IRON_INGOT:10"
-
-  # ============ 兜底分支：以上分支都不满足时显示（可选） ============
-  fallback:
-    default: true
-    lines:
-      - "&f……"
-    options:
-      leave:
-        text: "&7离开"
-        kether: []
+submit_item:
+  npc:
+    - '&f请把任务物品交给我。'
+  format: generic
+  player:
+    - reply: '&a检查并提交物品'
+      submit-quest: example_submit
+      submit-items:
+        - 'DIAMOND:5'
+        - 'IRON_INGOT:10'
+      then: |
+        close
+    - reply: '&7稍后见'
+      then: |
+        close

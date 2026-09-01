@@ -105,9 +105,6 @@ public final class CitizensHook {
             String key = parts[0].trim();
             String expected = parts.length > 1 ? parts[1].trim() : "";
             String actual = getData(player, npc, key);
-            if (actual == null) {
-                actual = "";
-            }
             if (!compare(actual, expected, op)) {
                 return false;
             }
@@ -120,6 +117,16 @@ public final class CitizensHook {
     }
 
     private static boolean compare(String actual, String expected, String op) {
+        if (actual == null) {
+            return switch (op) {
+                case "==" -> expected.equalsIgnoreCase("null");
+                case "!=" -> !expected.equalsIgnoreCase("null");
+                default -> false;
+            };
+        }
+        if (expected.equalsIgnoreCase("null")) {
+            return op.equals("!=");
+        }
         switch (op) {
             case "==":
                 return actual.equals(expected);

@@ -83,7 +83,15 @@
           } else { result.push(scalar(rest)); position++; }
         } else {
           const [key, value] = pair(text);
-          if (value) { result[key] = scalar(value); position++; }
+          if (value === '|' || value === '>') {
+            const content = [];
+            position++;
+            while (rows[position] && rows[position].indent > indent) {
+              content.push(rows[position].text);
+              position++;
+            }
+            result[key] = value === '|' ? content.join('\n') : content.join(' ');
+          } else if (value) { result[key] = scalar(value); position++; }
           else if (rows[position + 1] && rows[position + 1].indent > indent) { const child = block(position + 1, rows[position + 1].indent); result[key] = child[0]; position = child[1]; }
           else { result[key] = null; position++; }
         }
@@ -118,15 +126,79 @@
     q.objectives = raw.map(item => { if (q.type === 'kill_mob') return { target: String(item.mob ?? ''), amount: Number(item.amount) || 1, display: String(item.name ?? ''), itemName: '', boardLine: String(item['board-line'] ?? ''), kind: 'normal' }; return importedObjective(item); });
     q.conditionCommands = textList(data['condition-commands']); q.repeatable = Boolean(data.repeatable); q.cooldown = Number(data.cooldown) || 0; q.boardTitle = String(data['board-title'] ?? ''); q.boardLines = textList(data['board-line']); q.navigate = String(data.navigate ?? ''); return q;
   }
+  function importedCondition(raw) {
+    const data = [], papi = [];
+    const text = String(raw ?? '').replace(/^check\s+profile\s+data\s+/i, '').trim();
+    text.split(/\s*,\s*/).map(item => item.trim()).filter(Boolean).forEach(item => (item.includes('%') ? papi : data).push(item));
+    return { data, papi };
+  }
+  function importedThen(raw) {
+    const kether = [], result = { goto: '', close: false };
+    String(raw ?? '').split(/\r?\n/).map(item => item.trim()).filter(Boolean).forEach(item => {
+      if (/^goto\s+/i.test(item)) result.goto = item.replace(/^goto\s+/i, '').trim();
+      else if (item.toLowerCase() === 'close') result.close = true;
+      else kether.push(item);
+    });
+    result.kether = kether;
+    return result;
+  }
+  function importedOption(option, nodeFormat) {
+    const then = importedThen(option.then ?? option.kether);
+    return {
+      text: String(option.reply ?? option.text ?? ''),
+      hover: String(option.hover ?? ''),
+      mode: option['accept-quest'] || option['accept-data'] ? 'accept' : option['submit-quest'] ? 'submit' : 'none',
+      quest: String(option['accept-quest'] || option['submit-quest'] || ''),
+      acceptData: textList(option['accept-data']),
+      submitItems: textList(option['submit-items']).map(importedSubmitItem),
+      kether: then.kether,
+      goto: then.goto,
+      close: nodeFormat ? then.close : option.close !== false
+    };
+  }
+  function importedNode(id, node, conditions) {
+    const players = Array.isArray(node.player) ? node.player : [];
+    return {
+      id,
+      defaultBranch: Boolean(node.default),
+      data: conditions.data,
+      papi: conditions.papi,
+      lines: textList(node.npc),
+      options: players.map(option => importedOption(option || {}, true))
+    };
+  }
   function importDialogue(data, file) {
-    const d = structuredClone(initial.dialogue); d.file = file.replace(/\.(ya?ml)$/i, ''); d.npcIds = Array.isArray(data.npc) ? data.npc.join(',') : String(data.npc ?? ''); d.title = String(data.title ?? '');
+    const d = structuredClone(initial.dialogue);
+    d.file = file.replace(/\.(ya?ml)$/i, '');
+    const npcValue = data['npc id'] ?? data.npc;
+    d.npcIds = Array.isArray(npcValue) ? npcValue.join(',') : String(npcValue ?? '');
+    d.title = String(data.title ?? '');
     d.defaultData = Object.entries(data['default-data'] || {}).map(([key, value]) => `${key}=${value ?? ''}`);
-    d.branches = Object.entries(data.branches || {}).map(([id, branch]) => ({ id, defaultBranch: Boolean(branch.default), data: textList(branch.data), papi: textList(branch.papi), lines: textList(branch.lines), options: Object.entries(branch.options || {}).map(([optionId, option]) => ({ id: optionId, text: String(option.text ?? ''), hover: String(option.hover ?? ''), mode: option['accept-quest'] || option['accept-data'] ? 'accept' : option['submit-quest'] ? 'submit' : 'none', quest: String(option['accept-quest'] || option['submit-quest'] || ''), acceptData: textList(option['accept-data']), submitItems: textList(option['submit-items']).map(importedSubmitItem), kether: textList(option.kether), close: option.close !== false })) }));
+    if (data.when || data['npc id'] != null) {
+      const conditions = {};
+      (Array.isArray(data.when) ? data.when : []).forEach(entry => {
+        if (!entry || typeof entry !== 'object' || !entry.open) return;
+        conditions[String(entry.open)] = importedCondition(entry.if);
+      });
+      const reserved = new Set(['title', 'npc', 'npc id', 'when', 'default-data', 'branches']);
+      d.branches = Object.entries(data)
+        .filter(([id, node]) => !reserved.has(id) && node && typeof node === 'object' && !Array.isArray(node))
+        .map(([id, node]) => importedNode(id, node, conditions[id] || { data: [], papi: [] }));
+      return d;
+    }
+    d.branches = Object.entries(data.branches || {}).map(([id, branch]) => ({
+      id,
+      defaultBranch: Boolean(branch.default),
+      data: textList(branch.data),
+      papi: textList(branch.papi),
+      lines: textList(branch.lines),
+      options: Object.values(branch.options || {}).map(option => importedOption(option, false))
+    }));
     return d;
   }
   function importConfig(text, file) {
     const data = parseYaml(text);
-    if (data && data.branches) { state.dialogue = importDialogue(data, file); tab = 'dialogue'; }
+    if (data && (data.branches || data['npc id'] != null || data.when)) { state.dialogue = importDialogue(data, file); tab = 'dialogue'; }
     else { state.quest = importQuest(data, file); tab = 'quest'; }
     document.querySelectorAll('.tab').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
     render(); $('#status').textContent = `已读取 ${file}`;
