@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.cj.customquest"
-version = "1.6.4"
+version = "1.6.6"
 
 // TabooLib 版本（6.2.4 维护线，修复了 6.2.2 的类加载/Gson 序列化冲突）
 val TABOOLIB_VERSION = "6.2.4-c90a237"
