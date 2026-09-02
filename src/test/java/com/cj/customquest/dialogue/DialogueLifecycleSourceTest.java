@@ -38,12 +38,14 @@ class DialogueLifecycleSourceTest {
         assertTrue(command.contains("UUID.fromString(args[1])"));
         assertTrue(command.contains("DialoguePayload.decodeCommandOptionId(args[2])"));
         assertTrue(manager.contains("sessions.consume("));
-        assertTrue(manager.contains("if (session == null) {\n            DialoguePayload.sendClose(player, sessionId);"));
+        assertTrue(manager.contains("if (session == null)"));
+        assertTrue(manager.contains("DialoguePayload.sendClose(player, sessionId)"));
         assertTrue(manager.contains("validInteractionNpc(player, session.npcId())"));
-        assertTrue(manager.contains("quest == null || !QuestManager.getInstance().acceptQuest(player, quest)"));
+        assertTrue(manager.contains("selected.getSubmitQuest()"));
         assertTrue(manager.contains("selected.getSubmitItems()"));
+        assertTrue(!manager.contains("getAcceptQuest()"));
         assertTrue(manager.indexOf("QuestManager.getInstance().submitQuest(")
-                < manager.indexOf("if (!selected.getKether().isEmpty())"));
+                < manager.indexOf("if (!selected.getKether().isEmpty() || actions.targetBranch() != null)"));
         assertTrue(!manager.contains("getSubmitData()"));
     }
 }

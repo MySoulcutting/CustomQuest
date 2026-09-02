@@ -14,6 +14,9 @@ import taboolib.platform.BukkitPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -51,19 +54,20 @@ public final class QuestManager {
     }
 
     public Map<String, Quest> getQuests() {
-        return quests;
+        return Collections.unmodifiableMap(quests);
     }
 
     public Quest getQuest(String id) {
         if (id == null) return null;
-        return quests.get(id.toLowerCase());
+        return quests.get(id.toLowerCase(Locale.ROOT));
     }
 
     /** 找到任务对应的 yml 文件（按 quest-id 匹配，用于指令写回配置） */
     public File getQuestFile(String questId) {
         if (questId == null) return null;
-        File[] files = questsFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        File[] files = questsFolder.listFiles((dir, name) -> isYamlFile(name));
         if (files == null) return null;
+        Arrays.sort(files, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
         for (File file : files) {
             try {
                 YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
@@ -112,20 +116,27 @@ public final class QuestManager {
         quests.clear();
         NavigationManager.getInstance().clearTargets();
         questsFolder.mkdirs();
-        File[] files = questsFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        File[] files = questsFolder.listFiles((dir, name) -> isYamlFile(name));
         if (files == null) return;
+        Arrays.sort(files, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
         for (File file : files) {
             try {
                 YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
                 List<String> errors = new ArrayList<>();
-                Quest quest = Quest.load(file.getName().replace(".yml", ""), config, errors);
+                Quest quest = Quest.load(withoutYamlExtension(file.getName()), config, errors);
                 if (quest == null) {
                     for (String error : errors) {
                         Bukkit.getLogger().warning("[CustomQuest] " + error + "（文件: " + file.getName() + "）");
                     }
                     continue;
                 }
-                quests.put(quest.getId().toLowerCase(), quest);
+                String questKey = quest.getId().toLowerCase(Locale.ROOT);
+                if (quests.containsKey(questKey)) {
+                    Bukkit.getLogger().warning("[CustomQuest] 任务 ID 重复，已忽略文件 "
+                            + file.getName() + " 中的任务 " + quest.getId() + "。");
+                    continue;
+                }
+                quests.put(questKey, quest);
                 // 注册导航目标（navigate 未配置则忽略）
                 if (quest.getNavigateLocation() != null) {
                     NavigationManager.getInstance().setTarget(quest.getId(), quest.getNavigateLocation());
@@ -138,6 +149,14 @@ public final class QuestManager {
             }
         }
         Bukkit.getLogger().info("[CustomQuest] 已加载 " + quests.size() + " 个任务。");
+    }
+
+    private static boolean isYamlFile(String name) {
+        return name != null && name.toLowerCase(Locale.ROOT).matches(".*\\.ya?ml$");
+    }
+
+    private static String withoutYamlExtension(String name) {
+        return name == null ? "" : name.replaceFirst("(?i)\\.ya?ml$", "");
     }
 
     // ---------------- 查询 ----------------
@@ -199,7 +218,7 @@ public final class QuestManager {
         return getProgress(player, quest);
     }
 
-    /** 任务是否已满足完成进度（所有目标达成；描述任务只能指令完成，恒为 false） */
+    /** 任务是否已满足完成进度（所有目标达成；描述任务没有进度，恒为 false） */
     public boolean isProgressComplete(Player player, Quest quest) {
         if (quest.getType() == QuestType.DESCRIBE) {
             return false;
@@ -245,7 +264,10 @@ public final class QuestManager {
         Messages.sendTo(player, "quest-accepted", Map.of("name", TextUtil.parse(player, quest.getName())));
         sendQuestInfo(player, quest);
         QuestBoard.getInstance().update(player);
-        // 下一 tick 检查：让 NPC 选项的 accept-data 先写入，再执行条件指令。
+        if (quest.isNavigateOnAccept() && quest.getNavigateLocation() != null) {
+            NavigationManager.getInstance().start(player, quest);
+        }
+        // 下一 tick 检查，确保任务状态和条件指令按顺序更新。
         queueConditionCheck(player);
         return true;
     }
@@ -264,7 +286,7 @@ public final class QuestManager {
         return true;
     }
 
-    /** 提交任务（进度足够则完成；描述任务只能通过指令完成） */
+    /** 提交任务（进度足够则完成；描述任务不支持提交） */
     public boolean submitQuest(Player player, Quest quest) {
         return submitQuest(player, quest, List.of());
     }
@@ -300,9 +322,8 @@ public final class QuestManager {
     }
 
     private boolean completeQuest(Player player, Quest quest, boolean force,
-                                  List<QuestObjective> itemOverride) {
+        List<QuestObjective> itemOverride) {
         PlayerQuestData data = storage.get(player);
-        QuestProgress acceptedProgress = data.getAccepted().get(quest.getId());
         ItemStack[] itemContents = quest.getType() == QuestType.SUBMIT_ITEM
                 ? player.getInventory().getStorageContents() : null;
         SubmissionPlans submissionPlans = itemContents == null ? null
@@ -329,10 +350,6 @@ public final class QuestManager {
                         Map.of("current", getProgress(player, quest), "total", quest.getTotalAmount()));
                 return false;
             }
-        }
-        // 在扣除前记录条件达成，避免扣除物品后背包状态变化导致无法触发提示。
-        if (!force && quest.getType() == QuestType.SUBMIT_ITEM && acceptedProgress != null) {
-            updateConditionState(player, quest, acceptedProgress);
         }
         // 即使是管理员强制完成，提交物品任务也必须实际交出配置要求的物品。
         if (itemPlan != null) {
@@ -555,8 +572,14 @@ public final class QuestManager {
     /** 模拟全部成功后才把扣除结果写回真实背包。 */
     private static void applyItemRemoval(ItemStack[] contents, ItemRemovalPlan plan) {
         for (int i = 0; i < contents.length; i++) {
-            if (contents[i] != null && contents[i].getAmount() != plan.remainingAmounts()[i]) {
-                contents[i].setAmount(plan.remainingAmounts()[i]);
+            if (contents[i] == null) {
+                continue;
+            }
+            int remaining = plan.remainingAmounts()[i];
+            if (remaining <= 0) {
+                contents[i] = null;
+            } else if (contents[i].getAmount() != remaining) {
+                contents[i].setAmount(remaining);
             }
         }
     }

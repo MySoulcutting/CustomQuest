@@ -5,7 +5,6 @@ import com.cj.customquest.hook.CitizensHook;
 import com.cj.customquest.kether.KetherRunner;
 import com.cj.customquest.quest.Quest;
 import com.cj.customquest.quest.QuestManager;
-import com.cj.customquest.util.Messages;
 import com.cj.customquest.util.TextUtil;
 import net.citizensnpcs.api.npc.NPC;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -14,13 +13,18 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import taboolib.platform.BukkitPlugin;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * NPC 对话管理：加载配置、选择分支，并通过 SoulCore UI 或安全聊天回退执行选项。
@@ -51,12 +55,16 @@ public final class DialogueManager {
         closeAll();
         byNpc.clear();
         dialoguesFolder.mkdirs();
-        File[] files = dialoguesFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        File[] files = dialoguesFolder.listFiles((dir, name) -> isYamlFile(name));
         if (files == null) return;
+        Arrays.sort(files, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
         for (File file : files) {
             try {
                 YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
                 DialogueConfig dialogue = DialogueConfig.load(file.getName(), config);
+                for (String warning : dialogue.getWarnings()) {
+                    Bukkit.getLogger().warning("[CustomQuest] " + warning);
+                }
                 if (dialogue.getNpcIds().isEmpty()) {
                     Bukkit.getLogger().warning("[CustomQuest] 对话文件 " + file.getName() + " 未配置 npc，已忽略。");
                     continue;
@@ -70,6 +78,10 @@ public final class DialogueManager {
         }
     }
 
+    private static boolean isYamlFile(String name) {
+        return name != null && name.toLowerCase(Locale.ROOT).matches(".*\\.ya?ml$");
+    }
+
     public File getDialoguesFolder() {
         return dialoguesFolder;
     }
@@ -81,7 +93,6 @@ public final class DialogueManager {
      */
     public void openDialogue(Player player, int npcId, String forceBranchId) {
         if (!CitizensHook.isEnabled()) {
-            Messages.sendTo(player, "dialogue-no-config");
             return;
         }
         List<DialogueConfig> configs = byNpc.get(npcId);
@@ -107,10 +118,36 @@ public final class DialogueManager {
 
         MatchedDialogue matched = findBranch(player, npc, configs, forceBranchId);
         if (matched == null) {
-            Messages.sendTo(player, "dialogue-no-config");
             return;
         }
-        display(player, matched.config(), matched.branch(), npcId);
+        display(player, matched.config(), matched.branch(), npcId, null);
+    }
+
+    /** 在已有会话中跳转到指定分支，避免重新创建会话和重置客户端界面。 */
+    public void gotoDialogue(Player player, DialogueSessionStore.Session previousSession, String targetBranchId) {
+        if (player == null || previousSession == null || targetBranchId == null || targetBranchId.isBlank()) {
+            return;
+        }
+        Runnable navigate = () -> {
+            if (!player.isOnline()) {
+                sessions.cancelTransition(previousSession.playerId(), previousSession.id());
+                return;
+            }
+            DialogueConfig config = findConfig(previousSession.npcId(), previousSession.dialogueFile());
+            DialogueBranch target = findBranch(config, targetBranchId);
+            NPC npc = validInteractionNpc(player, previousSession.npcId());
+            if (config == null || target == null || npc == null) {
+                sessions.cancelTransition(previousSession.playerId(), previousSession.id());
+                DialoguePayload.sendClose(player, previousSession.id());
+                return;
+            }
+            display(player, config, target, previousSession.npcId(), previousSession);
+        };
+        if (Bukkit.isPrimaryThread()) {
+            navigate.run();
+        } else {
+            Bukkit.getScheduler().runTask(BukkitPlugin.getInstance(), navigate);
+        }
     }
 
     private MatchedDialogue findBranch(Player player, NPC npc, List<DialogueConfig> configs,
@@ -126,20 +163,14 @@ public final class DialogueManager {
         }
         for (DialogueConfig config : configs) {
             for (DialogueBranch candidate : config.getBranches()) {
-                if (candidate.isDefaultBranch()) {
+                if (config.isNodeFormat() && !config.isEntryBranch(candidate.getId())) {
+                    continue;
+                }
+                if (!config.isNodeFormat() && !candidate.hasConditions()) {
                     continue;
                 }
                 if (matches(player, npc, candidate)) {
                     return new MatchedDialogue(config, candidate);
-                }
-            }
-        }
-        if (forceBranchId == null) {
-            for (DialogueConfig config : configs) {
-                for (DialogueBranch candidate : config.getBranches()) {
-                    if (candidate.isDefaultBranch() || !candidate.hasConditions()) {
-                        return new MatchedDialogue(config, candidate);
-                    }
                 }
             }
         }
@@ -153,7 +184,8 @@ public final class DialogueManager {
         return ConditionParser.checkAll(player, branch.getPapiConditions());
     }
 
-    private void display(Player player, DialogueConfig config, DialogueBranch branch, int npcId) {
+    private void display(Player player, DialogueConfig config, DialogueBranch branch, int npcId,
+                         DialogueSessionStore.Session previousSession) {
         String title = DialoguePayload.sanitizeDisplayText(
                 TextUtil.parse(player, config.getTitle()), DialoguePayload.MAX_TITLE_BYTES);
         List<String> lines = new ArrayList<>();
@@ -181,13 +213,17 @@ public final class DialogueManager {
             options.add(new DialoguePayload.Option(option.getId(), text));
         }
 
-        DialogueSessionStore.Session session = sessions.open(
-                player.getUniqueId(),
-                npcId,
-                config.getFile(),
-                branch.getId(),
-                options.stream().map(DialoguePayload.Option::id).toList()
-        );
+        List<String> optionIds = options.stream().map(DialoguePayload.Option::id).toList();
+        DialogueSessionStore.Session session = previousSession == null
+                ? sessions.open(player.getUniqueId(), npcId, config.getFile(), branch.getId(), optionIds)
+                : sessions.updatePending(previousSession, branch.getId(), optionIds);
+        if (session == null) {
+            if (previousSession != null) {
+                sessions.cancelTransition(previousSession.playerId(), previousSession.id());
+                DialoguePayload.sendClose(player, previousSession.id());
+            }
+            return;
+        }
         DialoguePayload.Snapshot snapshot = new DialoguePayload.Snapshot(
                 session.id(), title, lines, options);
         if (!DialoguePayload.sendOpen(player, snapshot)) {
@@ -219,15 +255,15 @@ public final class DialogueManager {
             DialoguePayload.sendClose(player, sessionId);
             return;
         }
-        DialoguePayload.sendClose(player, session.id());
-
         NPC npc = validInteractionNpc(player, session.npcId());
         if (npc == null) {
+            DialoguePayload.sendClose(player, session.id());
             return;
         }
         DialogueConfig config = findConfig(session.npcId(), session.dialogueFile());
         DialogueBranch branch = findBranch(config, session.branchId());
         if (branch == null || !matches(player, npc, branch)) {
+            DialoguePayload.sendClose(player, session.id());
             return;
         }
 
@@ -242,33 +278,97 @@ public final class DialogueManager {
             }
         }
         if (selected == null) {
+            DialoguePayload.sendClose(player, session.id());
             return;
         }
 
-        // 任务快捷按钮只有在操作实际成功后才执行 data 与 Kether，避免提交失败仍推进 NPC 状态。
-        if (selected.getAcceptQuest() != null && !selected.getAcceptQuest().isEmpty()) {
-            Quest quest = QuestManager.getInstance().getQuest(selected.getAcceptQuest());
-            if (quest == null || !QuestManager.getInstance().acceptQuest(player, quest)) {
-                return;
-            }
-            applyData(player, npc, selected.getAcceptData());
-        } else if (selected.getSubmitQuest() != null && !selected.getSubmitQuest().isEmpty()) {
+        OptionActions actions = parseOptionActions(selected);
+        boolean transition = actions.targetBranch() != null && !actions.close();
+
+        // 提交任务快捷按钮只有在操作实际成功后才执行 Kether，避免提交失败仍推进 NPC 状态。
+        if (selected.getSubmitQuest() != null && !selected.getSubmitQuest().isEmpty()) {
             Quest quest = QuestManager.getInstance().getQuest(selected.getSubmitQuest());
             if (quest == null || !QuestManager.getInstance().submitQuest(
                     player, quest, selected.getSubmitItems())) {
+                DialoguePayload.sendClose(player, session.id());
                 return;
             }
         }
 
-        if (!selected.getKether().isEmpty()) {
-            Map<String, Object> vars = new HashMap<>();
-            vars.put("@NpcId", session.npcId());
-            vars.put("@BranchId", branch.getId());
-            vars.put("@Option", optionIndex);
-            vars.put("@OptionId", selected.getId());
-            vars.put("@Player", player);
-            KetherRunner.run(player, selected.getKether(), vars);
+        if (!transition) {
+            DialoguePayload.sendClose(player, session.id());
         }
+
+        if (!selected.getKether().isEmpty() || actions.targetBranch() != null) {
+            executeOptionActions(player, session, branch, selected, optionIndex, actions);
+        }
+    }
+
+    private void executeOptionActions(Player player, DialogueSessionStore.Session session,
+                                      DialogueBranch branch, DialogueOption option,
+                                      int optionIndex, OptionActions actions) {
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("@NpcId", session.npcId());
+        vars.put("@BranchId", branch.getId());
+        vars.put("@Option", optionIndex);
+        vars.put("@OptionId", option.getId());
+        vars.put("@Player", player);
+        vars.put("@DialogueSession", session);
+
+        String nextBranch = actions.targetBranch();
+        boolean transition = nextBranch != null && !actions.close();
+        if (transition) {
+            sessions.beginTransition(session);
+        }
+        CompletableFuture<Object> execution = KetherRunner.run(player, actions.kether(), vars);
+        if (transition) {
+            execution.whenComplete((ignored, error) -> {
+                if (error != null) {
+                    sessions.cancelTransition(session.playerId(), session.id());
+                    Runnable close = () -> DialoguePayload.sendClose(player, session.id());
+                    if (Bukkit.isPrimaryThread()) {
+                        close.run();
+                    } else {
+                        Bukkit.getScheduler().runTask(BukkitPlugin.getInstance(), close);
+                    }
+                    return;
+                }
+                gotoDialogue(player, session, nextBranch);
+            });
+        }
+    }
+
+    private OptionActions parseOptionActions(DialogueOption option) {
+        List<String> kether = new ArrayList<>();
+        String targetBranch = null;
+        boolean close = option.isClose();
+        for (String raw : option.getKether()) {
+            String action = raw == null ? "" : actionLine(raw);
+            if (action.isEmpty()) {
+                continue;
+            }
+            if (action.equalsIgnoreCase("close")) {
+                close = true;
+                continue;
+            }
+            if (action.regionMatches(true, 0, "goto", 0, 4)
+                    && (action.length() == 4 || Character.isWhitespace(action.charAt(4)))) {
+                String target = action.substring(4).trim();
+                if (target.length() >= 2 && target.startsWith("\"") && target.endsWith("\"")) {
+                    target = target.substring(1, target.length() - 1).trim();
+                }
+                if (!target.isEmpty()) {
+                    targetBranch = target;
+                }
+                continue;
+            }
+            kether.add(action);
+        }
+        return new OptionActions(kether, targetBranch, close);
+    }
+
+    private String actionLine(String raw) {
+        return raw.replace('\ufeff', ' ').trim();
     }
 
     /** 客户端主动关闭对话；只接受当前匹配会话。 */
@@ -345,19 +445,9 @@ public final class DialogueManager {
                 ? npc : null;
     }
 
-    private void applyData(Player player, NPC npc, List<String> entries) {
-        for (String entry : entries) {
-            String[] keyValue = entry.split("=", 2);
-            if (keyValue.length == 2) {
-                String key = keyValue[0].trim();
-                String value = keyValue[1].trim().replaceFirst("^=+", "");
-                if (!key.isEmpty()) {
-                    CitizensHook.setData(player, npc, key, value);
-                }
-            }
-        }
+    private record MatchedDialogue(DialogueConfig config, DialogueBranch branch) {
     }
 
-    private record MatchedDialogue(DialogueConfig config, DialogueBranch branch) {
+    private record OptionActions(List<String> kether, String targetBranch, boolean close) {
     }
 }

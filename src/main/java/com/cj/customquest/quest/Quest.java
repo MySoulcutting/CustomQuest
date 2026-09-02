@@ -43,6 +43,8 @@ public final class Quest {
     private final String boardTitle;
     /** 该任务在全息视图（计分板）上的完全自定义显示行列表（空 = 使用自动生成的目标行） */
     private final List<String> boardLines;
+    /** 是否在接取任务后自动开启导航 */
+    private final boolean navigateOnAccept;
     /** 导航目标位置（null = 未配置导航） */
     private final Location navigateLocation;
 
@@ -50,18 +52,19 @@ public final class Quest {
                   List<QuestObjective> objectives,
                   List<String> conditionCommands,
                   boolean repeatable, long cooldown, String boardTitle,
-                  List<String> boardLines, Location navigateLocation) {
+                  List<String> boardLines, boolean navigateOnAccept, Location navigateLocation) {
         this.id = id;
         this.name = name;
-        this.description = description;
+        this.description = List.copyOf(description);
         this.type = type;
-        this.objectives = objectives;
-        this.conditionCommands = conditionCommands;
+        this.objectives = List.copyOf(objectives);
+        this.conditionCommands = List.copyOf(conditionCommands);
         this.repeatable = repeatable;
         this.cooldown = cooldown;
         this.boardTitle = boardTitle;
-        this.boardLines = boardLines;
-        this.navigateLocation = navigateLocation;
+        this.boardLines = List.copyOf(boardLines);
+        this.navigateOnAccept = navigateOnAccept;
+        this.navigateLocation = navigateLocation == null ? null : navigateLocation.clone();
     }
 
     public String getId() {
@@ -106,9 +109,14 @@ public final class Quest {
         return boardLines;
     }
 
+    /** 是否在接取任务后自动开启导航 */
+    public boolean isNavigateOnAccept() {
+        return navigateOnAccept;
+    }
+
     /** 导航目标位置（null = 未配置导航） */
     public Location getNavigateLocation() {
-        return navigateLocation;
+        return navigateLocation == null ? null : navigateLocation.clone();
     }
 
     /** 总需求数量（所有目标需求之和） */
@@ -127,10 +135,6 @@ public final class Quest {
         return section.getStringList(key);
     }
 
-    private static int intOf(ConfigurationSection section, String key, int def) {
-        return section.contains(key) ? section.getInt(key) : def;
-    }
-
     private static boolean boolOf(ConfigurationSection section, String key, boolean def) {
         return section.contains(key) ? section.getBoolean(key) : def;
     }
@@ -140,13 +144,14 @@ public final class Quest {
                                                 Map<?, ?> values, List<String> errors) {
         String boardLine = blankToNull(strOf(values.get("board-line")));
         if (type == QuestType.KILL_MOB) {
-            String mob = strOf(values.get("mob"));
-            int amount = intOfValue(values.get("amount"), 1);
+            String mob = blankToNull(strOf(values.get("mob")));
+            Integer amount = positiveInt(values.get("amount"), questId + " " + display, errors);
             String displayName = strOf(values.get("name"));
-            if (mob == null || mob.isEmpty()) {
+            if (mob == null) {
                 errors.add("任务 " + questId + ": " + display + " 缺少 mob（MythicMobs 怪物内部名）");
                 return null;
             }
+            if (amount == null) return null;
             return QuestObjective.kill(mob, amount, displayName, boardLine);
         }
         String displayName = strOf(values.get("name"));
@@ -156,12 +161,12 @@ public final class Quest {
             neigeItem = blankToNull(strOf(values.get("ni")));
         }
         if (neigeItem != null) {
-            int amount = intOfValue(values.get("amount"), 1);
-            if (amount < 1) amount = 1;
+            Integer amount = positiveInt(values.get("amount"), questId + " " + display, errors);
+            if (amount == null) return null;
             return QuestObjective.neigeItem(neigeItem, amount, displayName, itemName, boardLine);
         }
         String itemText = strOf(values.get("item"));
-        QuestObjective objective = QuestObjective.parseItem(itemText, displayName, itemName, boardLine);
+        QuestObjective objective = QuestObjective.parseItemStrict(itemText, displayName, itemName, boardLine);
         if (objective == null) {
             errors.add("任务 " + questId + ": " + display + " 无法解析物品 '" + itemText + "'（格式: 材料:数量）");
             return null;
@@ -180,17 +185,34 @@ public final class Quest {
         return value == null ? null : String.valueOf(value);
     }
 
-    private static int intOfValue(Object value, int def) {
-        if (value instanceof Number number) {
-            return number.intValue();
+    private static Integer positiveInt(Object value, String context, List<String> errors) {
+        if (value == null) return 1;
+        String text = String.valueOf(value).trim();
+        if (!text.matches("[1-9]\\d*")) {
+            errors.add("任务 " + context + ": 数量必须是正整数，实际为 '" + text + "'");
+            return null;
         }
-        if (value != null) {
-            try {
-                return Integer.parseInt(String.valueOf(value).trim());
-            } catch (NumberFormatException ignored) {
-            }
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            errors.add("任务 " + context + ": 数量超出整数范围，实际为 '" + text + "'");
+            return null;
         }
-        return def;
+    }
+
+    private static long nonNegativeLong(Object value, String questId, List<String> errors) {
+        if (value == null) return 0L;
+        String text = String.valueOf(value).trim();
+        if (!text.matches("\\d+")) {
+            errors.add("任务 " + questId + ": cooldown 必须是非负整数，实际为 '" + text + "'，已使用 0");
+            return 0L;
+        }
+        try {
+            return Long.parseLong(text);
+        } catch (NumberFormatException e) {
+            errors.add("任务 " + questId + ": cooldown 超出整数范围，已使用 0");
+            return 0L;
+        }
     }
 
     /** 解析导航位置 "世界名,x,y,z"，失败返回 null */
@@ -233,6 +255,8 @@ public final class Quest {
         List<String> boardLines = stringList(section, "board-line");
         // 导航目标位置（可选）：navigate: "世界名,x,y,z"
         Location navigateLocation = parseNavigate(section.getString("navigate"));
+        // 是否在玩家接取任务后自动开始导航（需同时配置有效 navigate）
+        boolean navigateOnAccept = boolOf(section, "navigate-on-accept", false);
 
         // ---------------- 目标加载（支持多项目标；描述任务无目标） ----------------
         List<QuestObjective> objectives = new ArrayList<>();
@@ -266,15 +290,16 @@ public final class Quest {
                 // 单目标简写（兼容旧配置）
                 if (type == QuestType.KILL_MOB) {
                     String mob = section.getString("mob", "");
-                    int amount = intOf(section, "amount", 1);
                     if (mob.isEmpty()) {
                         errors.add("任务 " + id + ": kill_mob 类型必须配置 mob 或 objectives（MythicMobs 怪物内部名）");
                         return null;
                     }
+                    Integer amount = positiveInt(section.get("amount"), id, errors);
+                    if (amount == null) return null;
                     objectives.add(QuestObjective.kill(mob, amount, section.getString("name", null)));
                 } else {
                     for (String line : stringList(section, "items")) {
-                        QuestObjective objective = QuestObjective.parseItem(line);
+                        QuestObjective objective = QuestObjective.parseItemStrict(line, null, null, null);
                         if (objective == null) {
                             errors.add("任务 " + id + ": 无法解析物品 '" + line + "'（格式: 材料:数量，如 DIAMOND:5）");
                             continue;
@@ -300,10 +325,10 @@ public final class Quest {
             errors.add("任务 " + id + ": 已删除并忽略配置项 " + String.join(", ", removedFields));
         }
         boolean repeatable = boolOf(section, "repeatable", false);
-        long cooldown = section.contains("cooldown") ? section.getLong("cooldown") : 0L;
+        long cooldown = nonNegativeLong(section.get("cooldown"), id, errors);
 
         return new Quest(id, name, description, type, objectives,
                 conditionCommands, repeatable, cooldown, boardTitle, boardLines,
-                navigateLocation);
+                navigateOnAccept, navigateLocation);
     }
 }

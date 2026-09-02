@@ -1,22 +1,21 @@
 package com.cj.customquest.kether;
 
 import com.cj.customquest.dialogue.DialogueManager;
+import com.cj.customquest.dialogue.DialogueSessionStore;
 import com.cj.customquest.hook.CitizensHook;
 import com.cj.customquest.quest.Quest;
 import com.cj.customquest.quest.QuestManager;
-import com.cj.customquest.quest.QuestType;
-import com.cj.customquest.util.Messages;
 import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.entity.Player;
 import taboolib.common.platform.ProxyCommandSender;
 import taboolib.library.kether.QuestAction;
 import taboolib.library.kether.QuestActionParser;
 import taboolib.library.kether.QuestContext;
-import taboolib.library.kether.QuestReader;
 import taboolib.module.kether.Kether;
 import taboolib.module.kether.ScriptContext;
 
 import java.util.Optional;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -24,8 +23,7 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * 可用动作：
  * <ul>
- *   <li>{@code quest accept <questId> [data <key> <value>]} —— 接取任务（不校验前置条件），
- *       可选：接取成功后设置当前 NPC 的 data 变量，用于推进分支对话</li>
+ *   <li>{@code quest accept <questId>} —— 接取任务（不校验前置条件）</li>
  *   <li>{@code quest abandon <questId>} —— 放弃任务</li>
  *   <li>{@code quest submit <questId>} —— 提交任务进度（进度足够则完成）</li>
  *   <li>{@code quest complete <questId>} —— 强制完成任务</li>
@@ -33,9 +31,9 @@ import java.util.concurrent.CompletableFuture;
  *   <li>{@code quest has <questId>} —— 是否已接取（布尔）</li>
  *   <li>{@code quest done <questId>} —— 是否已完成（布尔）</li>
  *   <li>{@code dialogue open [npcId]} —— 打开 NPC 对话（缺省使用当前 NPC）</li>
- *   <li>{@code npc data set <npcId> <value>} —— 设置当前 NPC 的唯一变量值</li>
- *   <li>{@code npc data get <npcId>} —— 获取当前 NPC 的唯一变量值</li>
- *   <li>{@code npc data remove <npcId>} —— 删除当前 NPC 的唯一变量值</li>
+ *   <li>{@code npc data set <npcId> <value>} —— 设置指定 NPC 的唯一变量值</li>
+ *   <li>{@code npc data get <npcId>} —— 获取指定 NPC 的唯一变量值</li>
+ *   <li>{@code npc data remove <npcId>} —— 删除指定 NPC 的唯一变量值</li>
  * </ul>
  */
 public final class KetherActions {
@@ -77,12 +75,14 @@ public final class KetherActions {
 
     private static QuestActionParser questActionParser() {
         return QuestActionParser.of(reader -> {
+            if (!reader.hasNext()) {
+                return QuestAction.noop();
+            }
             String sub = reader.nextToken();
-            switch (sub.toLowerCase()) {
+            switch (sub.toLowerCase(Locale.ROOT)) {
                 case "accept": {
                     String questId = reader.hasNext() ? reader.nextToken() : "";
-                    String[] data = readOptionalData(reader);
-                    return acceptAction(questId, data[0], data[1]);
+                    return acceptAction(questId);
                 }
                 case "abandon":
                 case "quit":
@@ -123,19 +123,19 @@ public final class KetherActions {
     private static QuestActionParser acceptAliasParser() {
         return QuestActionParser.of(reader -> {
             String questId = reader.hasNext() ? reader.nextToken() : "";
-            String[] data = readOptionalData(reader);
-            return acceptAction(questId, data[0], data[1]);
+            return acceptAction(questId);
         });
     }
 
     private static QuestActionParser simpleQuest(SimpleQuestType type) {
-        return QuestActionParser.of(reader -> questAction(type, reader.nextToken()));
+        return QuestActionParser.of(reader -> questAction(
+                type, reader.hasNext() ? reader.nextToken() : ""));
     }
 
     /**
-     * 接取任务动作：不校验前置条件；可选在接取成功后设置 NPC data 变量。
+     * 接取任务动作：不校验前置条件。
      */
-    private static QuestAction<Object> acceptAction(String questId, String dataKey, String dataValue) {
+    private static QuestAction<Object> acceptAction(String questId) {
         return new QuestAction<>() {
             @Override
             public CompletableFuture<Object> process(QuestContext.Frame frame) {
@@ -147,14 +147,7 @@ public final class KetherActions {
                 if (quest == null) {
                     return CompletableFuture.completedFuture(null);
                 }
-                boolean accepted = QuestManager.getInstance().acceptQuest(player, quest);
-                // 接取成功后设置玩家在该 NPC 上的 data 变量（推进分支对话）
-                if (accepted && dataKey != null && dataValue != null) {
-                    NPC npc = npcOf(frame);
-                    if (npc != null) {
-                        CitizensHook.setData(player, npc, dataKey, dataValue);
-                    }
-                }
+                QuestManager.getInstance().acceptQuest(player, quest);
                 return CompletableFuture.completedFuture(null);
             }
         };
@@ -175,14 +168,7 @@ public final class KetherActions {
                 switch (type) {
                     case ABANDON -> QuestManager.getInstance().abandonQuest(player, quest);
                     case SUBMIT -> QuestManager.getInstance().submitQuest(player, quest);
-                    case COMPLETE -> {
-                        // 描述任务只能通过 /cq quest complete 指令强制完成
-                        if (quest.getType() == QuestType.DESCRIBE) {
-                            Messages.sendTo(player, "quest-command-only");
-                        } else {
-                            QuestManager.getInstance().completeQuest(player, quest, true);
-                        }
-                    }
+                    case COMPLETE -> QuestManager.getInstance().completeQuest(player, quest, true);
                 }
                 return CompletableFuture.completedFuture(null);
             }
@@ -251,7 +237,7 @@ public final class KetherActions {
 
     private static QuestActionParser dialogueGotoParser() {
         return QuestActionParser.of(reader -> {
-            String branchId = readRemaining(reader).trim();
+            String branchId = reader.hasNext() ? reader.nextToken().trim() : "";
             if (branchId.length() >= 2 && branchId.startsWith("\"") && branchId.endsWith("\"")) {
                 branchId = branchId.substring(1, branchId.length() - 1);
             }
@@ -262,7 +248,12 @@ public final class KetherActions {
                     Player player = playerOf(frame);
                     int npcId = varInt(frame, "@NpcId", -1);
                     if (player != null && npcId >= 0 && !target.isBlank()) {
-                        DialogueManager.getInstance().openDialogue(player, npcId, target);
+                        Object sessionValue = var(frame, "@DialogueSession");
+                        if (sessionValue instanceof DialogueSessionStore.Session session) {
+                            DialogueManager.getInstance().gotoDialogue(player, session, target);
+                        } else {
+                            DialogueManager.getInstance().openDialogue(player, npcId, target);
+                        }
                     }
                     return CompletableFuture.completedFuture(null);
                 }
@@ -293,16 +284,17 @@ public final class KetherActions {
             String sub = reader.nextToken();
             if (sub.equalsIgnoreCase("data") && reader.hasNext()) {
                 String op = reader.nextToken();
-                switch (op.toLowerCase()) {
+                switch (op.toLowerCase(Locale.ROOT)) {
                     case "set": {
-                        String npcId = reader.nextToken();
-                        String value = readRemaining(reader);
+                        String npcId = reader.hasNext() ? reader.nextToken() : "";
+                        String value = reader.hasNext() && reader.peek() != '}'
+                                ? reader.nextToken() : "";
                         return new QuestAction<Object>() {
                             @Override
                             public CompletableFuture<Object> process(QuestContext.Frame frame) {
                                 Player player = playerOf(frame);
-                                NPC npc = npcOf(frame);
-                                if (player != null && npc != null && npcId != null) {
+                                NPC npc = npcById(npcId);
+                                if (player != null && npc != null) {
                                     CitizensHook.setData(player, npc, value);
                                 }
                                 return CompletableFuture.completedFuture(null);
@@ -310,24 +302,24 @@ public final class KetherActions {
                         };
                     }
                     case "get": {
-                        String npcId = reader.nextToken();
+                        String npcId = reader.hasNext() ? reader.nextToken() : "";
                         return questValue(frame -> {
                             Player player = playerOf(frame);
-                            NPC npc = npcOf(frame);
-                            if (player == null || npc == null || npcId == null) return "";
+                            NPC npc = npcById(npcId);
+                            if (player == null || npc == null) return "";
                             String value = CitizensHook.getData(player, npc);
                             return value == null ? "" : value;
                         });
                     }
                     case "remove":
                     case "delete": {
-                        String npcId = reader.nextToken();
+                        String npcId = reader.hasNext() ? reader.nextToken() : "";
                         return new QuestAction<Object>() {
                             @Override
                             public CompletableFuture<Object> process(QuestContext.Frame frame) {
                                 Player player = playerOf(frame);
-                                NPC npc = npcOf(frame);
-                                if (player != null && npc != null && npcId != null) {
+                                NPC npc = npcById(npcId);
+                                if (player != null && npc != null) {
                                     CitizensHook.removeData(player, npc);
                                 }
                                 return CompletableFuture.completedFuture(null);
@@ -340,41 +332,6 @@ public final class KetherActions {
             }
             return QuestAction.noop();
         });
-    }
-
-    // ---------------- 解析工具 ----------------
-
-    /**
-     * 解析可选参数 "data <key> <value...>"，返回 [key, value]（无则为 [null, null]）。
-     */
-    private static String[] readOptionalData(QuestReader reader) {
-        if (!reader.hasNext()) {
-            return new String[]{null, null};
-        }
-        reader.mark();
-        String token = reader.nextToken();
-        if ("data".equalsIgnoreCase(token) && reader.hasNext()) {
-            String key = reader.nextToken();
-            String value = readRemaining(reader);
-            return new String[]{key, value};
-        }
-        reader.reset();
-        return new String[]{null, null};
-    }
-
-    private static String readRemaining(QuestReader reader) {
-        StringBuilder builder = new StringBuilder();
-        while (reader.hasNext()) {
-            String token = reader.nextToken();
-            if (token.length() >= 2 && token.startsWith("\"") && token.endsWith("\"")) {
-                token = token.substring(1, token.length() - 1);
-            }
-            if (builder.length() > 0) {
-                builder.append(' ');
-            }
-            builder.append(token);
-        }
-        return builder.toString();
     }
 
     // ---------------- 上下文工具 ----------------
@@ -392,13 +349,23 @@ public final class KetherActions {
         }
     }
 
-    /** 获取当前上下文 NPC（通过 @NpcId 变量） */
-    private static NPC npcOf(QuestContext.Frame frame) {
-        int npcId = varInt(frame, "@NpcId", -1);
-        if (npcId < 0) {
+    private static NPC npcById(String text) {
+        if (text == null || text.isBlank()) {
             return null;
         }
-        return CitizensHook.getNpc(npcId);
+        try {
+            return CitizensHook.getNpc(Integer.parseInt(text.trim()));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static Object var(QuestContext.Frame frame, String key) {
+        try {
+            return frame.context().rootFrame().variables().get(key).orElse(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     /** 从根变量表读取整型变量 */

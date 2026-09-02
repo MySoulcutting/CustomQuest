@@ -7,6 +7,7 @@ import taboolib.module.kether.ScriptOptions;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Kether 脚本运行器。
@@ -23,21 +24,24 @@ public final class KetherRunner {
      * @param lines  脚本行（列表或单行）
      * @param vars   注入脚本的变量（如 @NpcId、@QuestId）
      */
-    public static void run(CommandSender sender, List<String> lines, Map<String, Object> vars) {
+    public static CompletableFuture<Object> run(CommandSender sender, List<String> lines,
+                                                Map<String, Object> vars) {
         if (lines == null || lines.isEmpty()) {
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         String source = String.join("\n", lines);
-        runRaw(sender, source, vars);
+        return runRaw(sender, source, vars);
     }
 
     /**
      * 执行原始 Kether 脚本。
      */
-    public static void runRaw(CommandSender sender, String source, Map<String, Object> vars) {
+    public static CompletableFuture<Object> runRaw(CommandSender sender, String source,
+                                                   Map<String, Object> vars) {
         if (source == null || source.isBlank()) {
-            return;
+            return CompletableFuture.completedFuture(null);
         }
+        String script = source.replace('\ufeff', ' ').trim();
         try {
             ScriptOptions.ScriptOptionsBuilder builder = ScriptOptions.builder()
                     .sender(sender)
@@ -46,14 +50,17 @@ public final class KetherRunner {
             if (vars != null && !vars.isEmpty()) {
                 builder.vars(vars);
             }
-            KetherShell.INSTANCE.eval(source, builder.build())
-                    .whenComplete((result, error) -> {
-                        if (error != null) {
-                            Bukkit.getLogger().warning("[CustomQuest] Kether 脚本执行失败: " + error.getMessage());
-                        }
-                    });
+            CompletableFuture<Object> result = KetherShell.INSTANCE.eval(script, builder.build());
+            result.whenComplete((value, error) -> {
+                if (error != null) {
+                    Bukkit.getLogger().warning("[CustomQuest] Kether 脚本执行失败: " + error.getMessage());
+                }
+            });
+            return result;
         } catch (Throwable e) {
             Bukkit.getLogger().warning("[CustomQuest] Kether 脚本解析失败: " + e.getMessage());
+            return CompletableFuture.failedFuture(e);
         }
     }
+
 }

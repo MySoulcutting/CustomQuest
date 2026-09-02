@@ -14,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -102,7 +103,12 @@ public final class QuestStorage implements AutoCloseable {
         cache.remove(uuid, data);
     }
 
-    /** 保留旧 API；当前调用方仍在主线程定时保存。 */
+    /**
+     * 保留旧 API 以兼容外部调用方；该方法当前为同步保存。
+     *
+     * @deprecated 请改用 {@link #saveAll()}，避免误以为此调用会异步执行。
+     */
+    @Deprecated
     public void saveAllAsync() {
         saveAll();
     }
@@ -232,7 +238,7 @@ public final class QuestStorage implements AutoCloseable {
         if (hasMeta(connection, YAML_MIGRATION_KEY)) {
             return;
         }
-        File[] files = yamlFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        File[] files = yamlFolder.listFiles((dir, name) -> isYamlFile(name));
         int migrated = 0;
         boolean previousAutoCommit = connection.getAutoCommit();
         connection.setAutoCommit(false);
@@ -241,7 +247,7 @@ public final class QuestStorage implements AutoCloseable {
                 for (File file : files) {
                     UUID uuid;
                     try {
-                        uuid = UUID.fromString(file.getName().substring(0, file.getName().length() - 4));
+                        uuid = UUID.fromString(withoutYamlExtension(file.getName()));
                     } catch (IllegalArgumentException e) {
                         LOGGER.warning("[CustomQuest] 跳过无法识别的旧玩家数据文件: " + file.getName());
                         continue;
@@ -308,6 +314,14 @@ public final class QuestStorage implements AutoCloseable {
             }
         }
         return data;
+    }
+
+    private static boolean isYamlFile(String name) {
+        return name != null && name.toLowerCase(Locale.ROOT).matches(".*\\.ya?ml$");
+    }
+
+    private static String withoutYamlExtension(String name) {
+        return name == null ? "" : name.replaceFirst("(?i)\\.ya?ml$", "");
     }
 
     private static void writePlayer(Connection connection, UUID uuid, PlayerQuestData data) throws SQLException {

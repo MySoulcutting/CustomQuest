@@ -52,6 +52,45 @@ class QuestConfigTest {
     }
 
     @Test
+    void loadsNavigateOnAcceptOption() throws Exception {
+        YamlConfiguration config = new YamlConfiguration();
+        config.loadFromString("""
+                quest-id: navigation_on_accept
+                name: Navigation on accept
+                type: describe
+                navigate-on-accept: true
+                """);
+        List<String> warnings = new ArrayList<>();
+
+        Quest quest = Quest.load("fallback", config, warnings);
+
+        assertNotNull(quest);
+        assertTrue(quest.isNavigateOnAccept());
+        assertTrue(warnings.isEmpty());
+
+        YamlConfiguration defaultConfig = new YamlConfiguration();
+        defaultConfig.loadFromString("""
+                quest-id: navigation_default
+                name: Navigation default
+                type: describe
+                """);
+        Quest defaultQuest = Quest.load("fallback", defaultConfig, new ArrayList<>());
+
+        assertNotNull(defaultQuest);
+        assertFalse(defaultQuest.isNavigateOnAccept());
+    }
+
+    @Test
+    void ketherCompleteCanForceCompleteDescribeTasks() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/kether/KetherActions.java"));
+
+        assertTrue(source.contains(
+                "case COMPLETE -> QuestManager.getInstance().completeQuest(player, quest, true);"));
+        assertFalse(source.contains("quest-command-only"));
+    }
+
+    @Test
     void killEventNeverCompletesTaskAutomatically() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/com/cj/customquest/quest/QuestManager.java"));
@@ -61,6 +100,18 @@ class QuestConfigTest {
 
         assertTrue(killFlow.contains("updateConditionState(player, quest"));
         org.junit.jupiter.api.Assertions.assertFalse(killFlow.contains("completeQuest("));
+    }
+
+    @Test
+    void navigationDoesNotNotifyOrStopOnArrival() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/navigation/NavigationManager.java"));
+
+        assertFalse(source.contains("nav-start"));
+        assertFalse(source.contains("nav-cancelled"));
+        assertFalse(source.contains("nav-arrived"));
+        assertFalse(source.contains("ARRIVE_DISTANCE"));
+        assertFalse(source.contains("distance(target.location)"));
     }
 
     @Test
@@ -100,17 +151,26 @@ class QuestConfigTest {
     }
 
     @Test
-    void itemConditionTriggersBeforeNpcDeductionAndDuringInventoryCalibration() throws Exception {
+    void itemConditionTriggersOnlyDuringInventoryCalibration() throws Exception {
         String manager = Files.readString(Path.of(
                 "src/main/java/com/cj/customquest/quest/QuestManager.java"));
         int conditionCheck = manager.indexOf("updateConditionState(player, quest, acceptedProgress)");
         int applyItems = manager.indexOf("applyItemRemoval(itemContents, itemPlan)");
         int completed = manager.indexOf("data.getCompleted().put(quest.getId()", applyItems);
 
-        assertTrue(conditionCheck >= 0 && conditionCheck < applyItems && applyItems < completed);
+        assertEquals(-1, conditionCheck,
+                "NPC 提交不能触发 condition-commands，条件检测应由背包/事件流程负责");
+        assertTrue(applyItems >= 0 && applyItems < completed);
         assertTrue(manager.contains("quest.getType() == QuestType.SUBMIT_ITEM"));
         assertTrue(manager.contains("quest.getType() == QuestType.KILL_MOB"));
-        assertTrue(manager.contains("quest.getType() == QuestType.KILL_MOB"));
         assertFalse(manager.contains("物品任务只在 NPC 成功校验并扣物后触发一次达成动作"));
+    }
+
+    @Test
+    void itemRemovalClearsEmptySlots() throws Exception {
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/cj/customquest/quest/QuestManager.java"));
+        assertTrue(manager.contains("contents[i] = null"));
+        assertTrue(manager.contains("if (remaining <= 0)"));
     }
 }

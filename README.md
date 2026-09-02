@@ -4,7 +4,7 @@ CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的�
 提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
-当前项目版本为 **1.6.9**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
+当前项目版本为 **1.7.0**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
 
 ## 功能总览
 
@@ -13,8 +13,8 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
   当 NPC 的 data 值不同时显示不同对话，用于接取任务、推进分支剧情。
   **data 变量按玩家独立存储**：每个玩家在同一 NPC 上有自己的 data 值，不同玩家可处于不同对话分支，互不影响
 - ✅ **SoulCore 交互式任务对话**：支持对应通道的客户端使用带按钮的任务对话界面；其他客户端自动回退到可点击聊天选项
-- ✅ **对话内接取任务指令**：对话选项直接配置 `accept-quest: <任务ID>` 即可接取任务（无需写 Kether），
-  并可配置 `accept-data` 在接取成功后自动设置 NPC data 变量；Kether 写法 `quest accept <任务ID> [data <key> <value>]` 同样支持
+- ✅ **对话内接取任务指令**：在对话选项的 `then: |`（节点式配置）或 `kether`（传统配置）中使用 `quest accept <任务ID>` 接取任务；
+  接取成功后可继续使用 `npc data set <npcId> <value>` 推进 NPC 对话
 - ✅ **NeigeItems 物品提交**：提交物品目标支持 `neige-item` / `ni` 配置，并按 NI ID 校验和扣除；未安装 NeigeItems 时普通 Bukkit 物品功能不受影响
 - ✅ **NPC 原子提交任务**：对话选项通过 `submit-quest` 实时校验任务条件，并可用 `submit-items` 覆盖该按钮实际扣除清单；物品任务成功时才一次性扣除背包物品，
   随后的选项 Kether 仅在提交成功后执行，任务完成本身不修改 NPC data
@@ -24,7 +24,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 - ✅ **三种任务类型，均支持多项目标**
   - `kill_mob` —— 击杀 MythicMobs 怪物（可配置多个怪物目标，各自计数）
   - `submit_item` —— 提交物品（可配置多种物品）
-  - `describe` —— 描述任务（无目标，仅展示；只能通过 `/cq quest complete` 指令强制完成），
+  - `describe` —— 描述任务（无目标，仅展示；只能通过强制完成动作完成），
     用于在任务追踪 HUD/计分板上显示任务标题与任务内容
 - ✅ **双通道任务追踪**：SoulCore 客户端使用最多 5 项的任务 HUD；无对应通道或发包失败时自动回退右侧计分板
 - ✅ **任务导航**：CustomQuest 下发目标，SoulCore Fabric 客户端渲染原版信标光柱、无地形遮挡圆环与高对比度任务名/距离悬浮标签；不显示固定底部导航 HUD
@@ -44,7 +44,7 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
 ## 安装
 
-1. 将 `CustomQuest-1.6.9.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
+1. 将 `CustomQuest-1.7.0.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
@@ -153,14 +153,14 @@ description:                   # 任务内容（计分板逐行展示）
 type: describe                 # 描述任务
 
 # 接取（显示）：
-#   /cq quest accept <玩家> describe_story   （或对话选项 accept-quest / quest accept）
+#   /cq quest accept <玩家> describe_story   （或对话选项 then 中的 quest accept）
 # 强制完成（从计分板移除）：
 #   /cq quest complete <玩家> describe_story
-# 注意：Kether 的 quest complete / quest submit 对描述任务无效，仅指令可完成
+# 注意：描述任务不能使用 quest submit；可使用 Kether quest complete 或 /cq quest complete 强制完成
 ```
 
 > **说明：接取任务不校验前置条件。** 任务门控（谁能看到并点击接取选项）请使用
-> NPC 对话分支的 data / PAPI 条件；接取后可用 `accept-data` 或 `data` 参数设置 NPC data 变量推进剧情。
+> NPC 对话分支的 data / PAPI 条件；接取后可在选项的 `then: |` 中使用 `npc data set <npcId> <value>` 推进剧情。
 
 ## 任务追踪（SoulCore HUD / 计分板回退）
 
@@ -268,7 +268,7 @@ objectives:
 - 回退计分板最多选取 5 个任务，并按「完整块」展示（标题 + 全部目标行）；受侧边栏 15 行限制，放不下的任务整体跳过并以「…还有 N 个任务」提示，
   **不会只显示部分目标**
 - 击杀 MythicMobs 怪物后**即时刷新**；提交物品类进度随背包数量自动刷新
-- **描述任务**：HUD 最多显示两行描述；回退计分板显示任务标题 + 完整 description，完成（指令强制）后移除
+- **描述任务**：HUD 最多显示两行描述；回退计分板显示任务标题 + 完整 description，强制完成后移除
 - 关闭开关后自动清空 SoulCore HUD 与本插件设置的计分板（`/cq reload` 即时生效）
 
 ## 任务导航
@@ -277,8 +277,8 @@ objectives:
 
 - 需要客户端安装支持 `soulcore:quest_navigation` 通道的 SoulCore Fabric Mod；未安装时不会建立导航
 - Mod 在目标位置渲染原版信标材质光柱、圆环和随距离缩放的任务名/距离悬浮标签
-- 靠近目标（5 米内）后提示到达并自动结束导航
-- **同一时间只能导航一个任务**：导航第二个任务会自动取消第一个；再次点击按钮（显示为「取消导航」）取消导航
+- 靠近目标（5 米内）不会发送到达提示，也不会自动结束导航；需要再次点击按钮手动取消
+- **同一时间只能导航一个任务**：导航第二个任务会自动取消第一个；开启、取消和到达导航均不发送提示
 - 全部视觉效果仅存在于客户端，不修改服务端方块、不生成实体；超过 Mod 世界标记范围时不显示导航视觉
 
 导航位置在任务文件里配置：
@@ -286,7 +286,11 @@ objectives:
 ```yaml
 # quests/example_kill.yml
 navigate: "world,100,64,200"   # 世界名,x,y,z
+# 接取任务成功后自动开启导航（需要同时配置有效的 navigate）
+navigate-on-accept: true
 ```
+
+`navigate-on-accept: true` 只会在玩家成功接取任务后自动开启该任务的导航；未配置有效 `navigate` 时不会启动导航。
 
 玩家可用 `/cq nav <任务ID>` 开始导航、`/cq nav cancel` 取消。管理员也可用以下指令写回任务位置（设为执行者当前位置）：
 
@@ -323,8 +327,9 @@ branches:                     # 从上到下找第一个「条件全部满足」
     options:
       accept:
         text: "&a&l[接受收集任务]"
-        accept-quest: example_submit
-        accept-data: "stage=item_collecting"
+        kether:
+          - "quest accept example_submit"
+          - "npc data set 5 item_collecting"
   initial:
     data: stage               # NPC data 条件（写法一：key + data-value）
     data-value: none
@@ -336,12 +341,10 @@ branches:                     # 从上到下找第一个「条件全部满足」
     options:                  # 最多向客户端显示 6 个可点击选项
       accept:                 # 稳定选项 ID：1-64 UTF-8 bytes，不能包含控制字符
         text: "&a&l[接受任务] &a清剿荒野"
-        # ---- 接取任务快捷指令（推荐）----
-        accept-quest: example_kill           # 点击后接取任务（不校验前置条件）
-        accept-data: "stage=kill_doing"      # 接取成功后设置 NPC data 变量（可列表）
-        # 等价 Kether 写法：
-        # kether:
-        #   - "quest accept example_kill data stage kill_doing"
+        # ---- 接取任务 ----
+        kether:
+          - "quest accept example_kill"        # 不校验前置条件
+          - "npc data set 5 kill_doing"       # 接取成功后设置 NPC data 变量
       reject:
         text: "&7我暂时没空"
         kether:
@@ -373,23 +376,16 @@ branches:                     # 从上到下找第一个「条件全部满足」
             name: "&b大钻石"                # 物品不足提示中的显示名（可选）
             item-name: "&b大钻石"           # 只匹配该自定义名称（可选）
           - "IRON_INGOT:10"                 # 无自定义名时可用简写
-  fallback:
-    default: true             # 兜底分支（所有分支都不满足时显示）
-    lines: ["&f……"]
-    options:
-      leave:
-        text: "&7离开"
-        kether: []
 ```
 
-- 分支匹配顺序：先匹配带条件的分支，全部失败后回退到 `default: true` 或无条件的分支
+- 分支匹配顺序：传统 `branches` 和节点式 `when` 格式都只自动打开条件满足的分支；全部失败时不打开任何对话，`goto <节点 ID>` 仍可从按钮中强制跳转
+- 节点式配置中的 `goto <节点 ID>` 是对话跳转动作；它不会作为 Kether 顶层脚本单独解析，`then: |` 中的其他动作仍按顺序执行
 - 支持 `soulcore:quest_dialogue` 的 SoulCore 客户端会显示独立任务对话界面，并通过 `soulcore:quest_dialogue_request` 回传选择；未监听展示通道时使用可点击聊天回退
 - 每次打开对话都会创建绑定玩家的 60 秒一次性会话；Mod 与聊天回退共用同一安全回调，不能直接通过 NPC、分支或序号伪造选项
 - 选项提交后会再次校验分支条件、NPC 存活状态、世界和 6 格交互距离；重放、过期或非本次展示的选项不会执行
-- `accept-quest` 接取成功后才会设置 `accept-data` 中的变量（`key=value`，可写列表）；
-  若选项还配置了 `kether`，只会在接取成功后继续执行
+- 接取任务请在选项的 `then: |`（节点式配置）或 `kether`（传统配置）中使用 `quest accept <任务ID>`；该动作不校验前置条件，后续动作按顺序执行
 - `submit-quest` 会调用非强制提交：击杀任务复查进度，物品任务复查并一次性扣除主背包物品；
-  只有成功后才完成任务并继续执行该选项的 Kether，不会修改 NPC data。一个选项不能同时配置 `accept-quest` 与 `submit-quest`
+  只有成功后才完成任务并继续执行该选项的 Kether，不会修改 NPC data
 - `submit-items` 必须与 `submit-quest` 同时使用，且仅支持 `submit_item` 任务。配置后会覆盖该按钮本次实际扣除清单，
   但任务原 `objectives/items` 仍负责进度、HUD 与达成条件；未配置时保持旧行为。两份清单相同时也只扣一次
 - `submit-items` 支持严格简写 `"MATERIAL:数量"`，或映射写法 `item` + 可选 `amount`、`name`、`item-name`；
@@ -406,14 +402,14 @@ branches:                     # 从上到下找第一个「条件全部满足」
 
 | 动作 | 说明 |
 | --- | --- |
-| `quest accept <任务ID> [data <key> <value>]` | 接取任务（不校验前置条件）；可选在成功后设置当前 NPC 的 data 变量 |
+| `quest accept <任务ID>` | 接取任务（不校验前置条件） |
 | `quest abandon <任务ID>` | 放弃任务 |
 | `quest submit <任务ID>` | 提交进度（足够则完成） |
-| `quest complete <任务ID>` | 强制完成；提交物品任务仍需交齐物品（描述任务无效） |
+| `quest complete <任务ID>` | 强制完成；提交物品任务仍需交齐物品，描述任务可直接完成 |
 | `quest progress <任务ID>` | 返回当前进度（数值） |
 | `quest has <任务ID>` / `quest done <任务ID>` | 是否已接取 / 已完成（布尔） |
 | `dialogue open [npcId]` | 打开 NPC 对话（缺省用当前 `@NpcId`） |
-| `npc data set <npcId> <value>` | 设置当前玩家在该 NPC 上的变量值（持久化） |
+| `npc data set <npcId> <value>` | 设置当前玩家在该 NPC 上的变量值（持久化）；值为 `null` 时删除变量并恢复为默认的未设置状态 |
 | `npc data get <npcId>` | 获取当前玩家在该 NPC 上的变量值 |
 | `npc data remove <npcId>` | 删除当前玩家在该 NPC 上的变量 |
 
@@ -467,7 +463,7 @@ then: |
 
 ```bash
 ./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.6.9.jar
+# 产物：build/libs/CustomQuest-1.7.0.jar
 ```
 
 - 需要 JDK 21

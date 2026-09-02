@@ -71,24 +71,48 @@ public final class QuestObjective {
     }
 
     public static QuestObjective parseItem(String text, String display, String itemName, String boardLine) {
+        return parseItem(text, display, itemName, boardLine, false);
+    }
+
+    static QuestObjective parseItemStrict(String text, String display, String itemName, String boardLine) {
+        return parseItem(text, display, itemName, boardLine, true);
+    }
+
+    private static QuestObjective parseItem(String text, String display, String itemName,
+                                            String boardLine, boolean strict) {
         if (text == null) return null;
         String raw = text.trim();
-        String[] parts = raw.split(":");
-        if (parts.length == 0) return null;
+        String[] parts = raw.split(":", -1);
         if ((parts[0].equalsIgnoreCase("neige-item") || parts[0].equalsIgnoreCase("ni"))
                 && parts.length >= 2) {
             int amount = 1;
             if (parts.length >= 3) {
-                try { amount = Integer.parseInt(parts[2]); } catch (NumberFormatException ignored) { }
+                try {
+                    amount = Integer.parseInt(parts[2].trim());
+                } catch (NumberFormatException ignored) {
+                    if (strict) return null;
+                }
+            } else if (strict) {
+                return null;
             }
-            return neigeItem(parts[1].trim(), Math.max(1, amount), display, itemName, boardLine);
+            if (strict && (parts.length != 3 || parts[1].isBlank() || amount < 1)) return null;
+            return neigeItem(parts[1].trim(), strict ? amount : Math.max(1, amount), display, itemName, boardLine);
         }
-        String[] materialParts = raw.split("[:\s]+");
+        String[] materialParts = raw.split("[:\s]+", -1);
         Material material = Material.matchMaterial(materialParts[0]);
         if (material == null) return null;
         int amount = 1;
         if (materialParts.length > 1) {
-            try { amount = Integer.parseInt(materialParts[1]); } catch (NumberFormatException ignored) { }
+            try {
+                amount = Integer.parseInt(materialParts[1].trim());
+            } catch (NumberFormatException ignored) {
+                if (strict) return null;
+            }
+        }
+        if (strict && (materialParts.length > 2 || amount < 1
+                || material == Material.AIR || material == Material.CAVE_AIR
+                || material == Material.VOID_AIR)) {
+            return null;
         }
         return item(material, Math.max(1, amount), display, itemName, boardLine);
     }

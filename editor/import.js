@@ -1,14 +1,18 @@
 (function () {
   function cleanLine(raw) {
-    let quote = false, depth = 0;
+    let quote = '', depth = 0;
     for (let i = 0; i < raw.length; i++) {
       const c = raw[i];
-      if (c === '"' && raw[i - 1] !== '\\') quote = !quote;
+      if (quote === '"' && c === '"' && raw[i - 1] !== '\\') quote = '';
+      else if (quote === "'" && c === "'") {
+        if (raw[i + 1] === "'") { i++; continue; }
+        quote = '';
+      } else if (!quote && (c === '"' || c === "'")) quote = c;
       if (!quote && (c === '[' || c === '{')) depth++;
       if (!quote && (c === ']' || c === '}')) depth--;
-      if (c === '#' && !quote && depth === 0 && (i === 0 || /\s/.test(raw[i - 1]))) return raw.slice(0, i).trim();
+      if (c === '#' && !quote && depth === 0 && (i === 0 || /\s/.test(raw[i - 1]))) return raw.slice(0, i).trimEnd();
     }
-    return raw.trim();
+    return raw.replace(/\s+$/, '');
   }
   function scalar(raw) {
     const value = raw.trim();
@@ -33,10 +37,14 @@
   }
   function splitInline(text) {
     const result = [];
-    let start = 0, quote = false, depth = 0;
+    let start = 0, quote = '', depth = 0;
     for (let i = 0; i < text.length; i++) {
       const c = text[i];
-      if (c === '"' && text[i - 1] !== '\\') quote = !quote;
+      if (quote === '"' && c === '"' && text[i - 1] !== '\\') quote = '';
+      else if (quote === "'" && c === "'") {
+        if (text[i + 1] === "'") { i++; continue; }
+        quote = '';
+      } else if (!quote && (c === '"' || c === "'")) quote = c;
       if (!quote && (c === '[' || c === '{')) depth++;
       if (!quote && (c === ']' || c === '}')) depth--;
       if (c === ',' && !quote && depth === 0) { result.push(text.slice(start, i).trim()); start = i + 1; }
@@ -45,37 +53,74 @@
     return result;
   }
   function pair(text) {
-    let quote = false, depth = 0;
+    const pairs = mappingPairs(text);
+    return pairs.length ? [pairs[0].key, pairs[0].value] : [text.trim(), ''];
+  }
+  function mappingPairs(text) {
+    const colons = [];
+    let quote = '', depth = 0;
     for (let i = 0; i < text.length; i++) {
       const c = text[i];
-      if (c === '"' && text[i - 1] !== '\\') quote = !quote;
+      if (quote === '"' && c === '"' && text[i - 1] !== '\\') quote = '';
+      else if (quote === "'" && c === "'") {
+        if (text[i + 1] === "'") { i++; continue; }
+        quote = '';
+      } else if (!quote && (c === '"' || c === "'")) quote = c;
       if (!quote && (c === '[' || c === '{')) depth++;
       if (!quote && (c === ']' || c === '}')) depth--;
-      if (c === ':' && !quote && depth === 0) return [text.slice(0, i).trim().replace(/^['"]|['"]$/g, ''), text.slice(i + 1).trim()];
+      if (c === ':' && !quote && depth === 0) colons.push(i);
     }
-    return [text.trim(), ''];
+    if (!colons.length) return [];
+    const boundaries = [{ keyStart: 0, colon: colons[0] }];
+    let valueStart = colons[0] + 1;
+    for (const colon of colons.slice(1)) {
+      const prefix = text.slice(valueStart, colon);
+      const match = prefix.match(/(?:^|\s)(['"]?[A-Za-z_][\w -]*['"]?)\s*$/);
+      if (!match) continue;
+      const keyStart = valueStart + prefix.lastIndexOf(match[1]);
+      if (!text.slice(valueStart, keyStart).trim()) continue;
+      boundaries.push({ keyStart, colon });
+      valueStart = colon + 1;
+    }
+    return boundaries.map((boundary, index) => {
+      const next = boundaries[index + 1];
+      const key = text.slice(boundary.keyStart, boundary.colon).trim().replace(/^['"]|['"]$/g, '');
+      const end = next ? next.keyStart : text.length;
+      return { key, value: text.slice(boundary.colon + 1, end).trim() };
+    });
   }
   function parseYaml(text) {
     const rows = text.replace(/^\uFEFF/, '').split(/\r?\n/).map(raw => {
       const clean = cleanLine(raw);
-      return { indent: clean.length - clean.trimStart().length, text: clean.trim() };
-    }).filter(row => row.text);
+      return { indent: clean.length - clean.trimStart().length, text: clean.trim(), blank: !clean.trim() };
+    });
+    const nextMeaningful = position => {
+      while (position < rows.length && rows[position].blank) position++;
+      return position;
+    };
     function block(position, indent) {
+      position = nextMeaningful(position);
       const list = rows[position]?.indent === indent && rows[position].text.startsWith('-');
       const result = list ? [] : {};
-      while (position < rows.length && rows[position].indent === indent && rows[position].text.startsWith('-') === list) {
+      while (position < rows.length) {
+        position = nextMeaningful(position);
+        if (position >= rows.length || rows[position].indent !== indent || rows[position].text.startsWith('-') !== list) break;
         const text = rows[position].text;
         if (list) {
           const rest = text.slice(1).trim();
           if (!rest) {
-            const child = rows[position + 1] && rows[position + 1].indent > indent ? block(position + 1, rows[position + 1].indent) : [null, position + 1];
+            const childPosition = nextMeaningful(position + 1);
+            const child = rows[childPosition] && rows[childPosition].indent > indent ? block(childPosition, rows[childPosition].indent) : [null, position + 1];
             result.push(child[0]); position = child[1]; continue;
           }
-          const [key, value] = pair(rest);
-          if (rest.includes(':')) {
-            const object = {}; object[key] = value ? scalar(value) : null; position++;
-            if (rows[position] && rows[position].indent > indent) {
-              const child = block(position, rows[position].indent);
+          const pairs = mappingPairs(rest);
+          if (pairs.length) {
+            const object = {};
+            pairs.forEach(item => { object[item.key] = item.value ? scalar(item.value) : null; });
+            position++;
+            const childPosition = nextMeaningful(position);
+            if (rows[childPosition] && rows[childPosition].indent > indent) {
+              const child = block(childPosition, rows[childPosition].indent);
               if (child[0] && typeof child[0] === 'object' && !Array.isArray(child[0])) Object.assign(object, child[0]);
               position = child[1];
             }
@@ -86,28 +131,50 @@
           if (value === '|' || value === '>') {
             const content = [];
             position++;
-            while (rows[position] && rows[position].indent > indent) {
-              content.push(rows[position].text);
+            while (rows[position] && (rows[position].blank || rows[position].indent > indent)) {
+              content.push(rows[position].blank ? '' : rows[position].text);
               position++;
             }
             result[key] = value === '|' ? content.join('\n') : content.join(' ');
           } else if (value) { result[key] = scalar(value); position++; }
-          else if (rows[position + 1] && rows[position + 1].indent > indent) { const child = block(position + 1, rows[position + 1].indent); result[key] = child[0]; position = child[1]; }
-          else { result[key] = null; position++; }
+          else {
+            const childPosition = nextMeaningful(position + 1);
+            const childRow = rows[childPosition];
+            const indentationlessList = childRow && childRow.indent === indent && childRow.text.startsWith('-');
+            if (childRow && (childRow.indent > indent || indentationlessList)) {
+              const child = block(childPosition, childRow.indent);
+              result[key] = child[0];
+              position = child[1];
+            } else {
+              result[key] = null;
+              position++;
+            }
+          }
         }
       }
       return [result, position];
     }
-    return rows.length ? block(0, rows[0].indent)[0] : {};
+    const first = nextMeaningful(0);
+    return first < rows.length ? block(first, rows[first].indent)[0] : {};
   }
   function textList(value) { return Array.isArray(value) ? value.map(String) : value == null ? [] : [String(value)]; }
+  function boolValue(value) { return value === true || typeof value === 'string' && value.trim().toLowerCase() === 'true'; }
+  function importedSubmitItems(value) {
+    if (Array.isArray(value)) return value.map(importedSubmitItem).filter(item => item !== '');
+    return value == null ? [] : [importedSubmitItem(value)].filter(item => item !== '');
+  }
   function importedSubmitItem(value) {
     if (typeof value === 'string') return value;
     if (!value || typeof value !== 'object') return '';
-    if (value['neige-item'] != null) return `neige-item:${value['neige-item']}:${Number(value.amount) || 1}`;
-    if (value.ni != null) return `ni:${value.ni}:${Number(value.amount) || 1}`;
-    if (value.item != null) return `${value.item}:${Number(value.amount) || 1}`;
-    return JSON.stringify(value);
+    const result = {};
+    if (value['neige-item'] != null || value.ni != null) result['neige-item'] = String(value['neige-item'] ?? value.ni);
+    else if (value.item != null) result.item = String(value.item);
+    else return { ...value };
+    if (value.amount != null) result.amount = Number(value.amount) || 1;
+    for (const key of ['name', 'item-name', 'board-line']) {
+      if (value[key] != null && String(value[key]).trim()) result[key] = String(value[key]);
+    }
+    return result;
   }
   function importedObjective(item) {
     const source = item && typeof item === 'object' ? item : { item };
@@ -122,9 +189,10 @@
     const q = structuredClone(initial.quest);
     q.file = file.replace(/\.(ya?ml)$/i, ''); q.id = String(data['quest-id'] || q.file); q.name = String(data.name ?? ''); q.type = String(data.type || 'describe'); q.description = textList(data.description);
     let raw = data.objectives;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) raw = Object.values(raw);
     if (!Array.isArray(raw)) raw = q.type === 'kill_mob' && data.mob ? [{ mob: data.mob, amount: data.amount }] : q.type === 'submit_item' && data.item ? [{ item: data.item }] : [];
     q.objectives = raw.map(item => { if (q.type === 'kill_mob') return { target: String(item.mob ?? ''), amount: Number(item.amount) || 1, display: String(item.name ?? ''), itemName: '', boardLine: String(item['board-line'] ?? ''), kind: 'normal' }; return importedObjective(item); });
-    q.conditionCommands = textList(data['condition-commands']); q.repeatable = Boolean(data.repeatable); q.cooldown = Number(data.cooldown) || 0; q.boardTitle = String(data['board-title'] ?? ''); q.boardLines = textList(data['board-line']); q.navigate = String(data.navigate ?? ''); return q;
+    q.conditionCommands = textList(data['condition-commands']); q.repeatable = Boolean(data.repeatable); q.cooldown = Number(data.cooldown) || 0; q.boardTitle = String(data['board-title'] ?? ''); q.boardLines = textList(data['board-line']); q.navigate = String(data.navigate ?? ''); q.navigateOnAccept = boolValue(data['navigate-on-accept']); return q;
   }
   function importedCondition(raw) {
     const data = [], papi = [];
@@ -144,21 +212,21 @@
   }
   function importedOption(option, nodeFormat) {
     const then = importedThen(option.then ?? option.kether);
+    const submitQuest = String(option['submit-quest'] ?? '').trim();
     return {
       text: String(option.reply ?? option.text ?? ''),
-      mode: option['accept-quest'] ? 'accept' : option['submit-quest'] ? 'submit' : 'none',
-      quest: String(option['accept-quest'] || option['submit-quest'] || ''),
-      submitItems: textList(option['submit-items']).map(importedSubmitItem),
+      mode: submitQuest ? 'submit' : 'none',
+      quest: submitQuest,
+      submitItems: importedSubmitItems(option['submit-items']),
       kether: then.kether,
       goto: then.goto,
-      close: nodeFormat ? then.close : option.close !== false
+      close: nodeFormat ? then.close : option.close == null ? !then.goto : Boolean(option.close)
     };
   }
   function importedNode(id, node, conditions) {
     const players = Array.isArray(node.player) ? node.player : [];
     return {
       id,
-      defaultBranch: Boolean(node.default),
       data: conditions.data,
       papi: conditions.papi,
       lines: textList(node.npc),
@@ -171,21 +239,27 @@
     const npcValue = data['npc id'] ?? data.npc;
     d.npcIds = Array.isArray(npcValue) ? npcValue.join(',') : String(npcValue ?? '');
     d.title = String(data.title ?? '');
-    if (data.when || data['npc id'] != null) {
+    const hasNodeEntries = Array.isArray(data.when) && data.when.some(entry => entry && typeof entry === 'object' && String(entry.open ?? '').trim());
+    if (hasNodeEntries) {
       const conditions = {};
       (Array.isArray(data.when) ? data.when : []).forEach(entry => {
         if (!entry || typeof entry !== 'object' || !entry.open) return;
-        conditions[String(entry.open)] = importedCondition(entry.if);
+        const branchId = String(entry.open);
+        const current = conditions[branchId] || { data: [], papi: [] };
+        const next = importedCondition(entry.if);
+        current.data.push(...next.data);
+        current.papi.push(...next.papi);
+        conditions[branchId] = current;
       });
       const reserved = new Set(['title', 'npc', 'npc id', 'when', 'default-data', 'branches']);
       d.branches = Object.entries(data)
-        .filter(([id, node]) => !reserved.has(id) && node && typeof node === 'object' && !Array.isArray(node))
+        .filter(([id, node]) => !reserved.has(id) && node && typeof node === 'object' && !Array.isArray(node)
+          && (node.npc != null || node.player != null || node.format != null))
         .map(([id, node]) => importedNode(id, node, conditions[id] || { data: [], papi: [] }));
       return d;
     }
     d.branches = Object.entries(data.branches || {}).map(([id, branch]) => ({
       id,
-      defaultBranch: Boolean(branch.default),
       data: textList(branch.data),
       papi: textList(branch.papi),
       lines: textList(branch.lines),
@@ -195,10 +269,11 @@
   }
   function importConfig(text, file) {
     const data = parseYaml(text);
-    if (data && (data.branches || data['npc id'] != null || data.when)) { state.dialogue = importDialogue(data, file); tab = 'dialogue'; }
+    const hasNodeEntries = Array.isArray(data?.when) && data.when.some(entry => entry && typeof entry === 'object' && String(entry.open ?? '').trim());
+    if (data && (data.branches || data['npc id'] != null || data.npc != null || hasNodeEntries)) { state.dialogue = importDialogue(data, file); tab = 'dialogue'; }
     else { state.quest = importQuest(data, file); tab = 'quest'; }
     document.querySelectorAll('.tab').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
-    render(); $('#status').textContent = `已读取 ${file}`;
+    saveDraft(); render(); $('#status').textContent = `已读取 ${file}，草稿已缓存`;
   }
   $('#import').onclick = () => $('#file').click();
   $('#file').onchange = async event => { const file = event.target.files[0]; if (!file) return; try { importConfig(await file.text(), file.name); } catch (error) { $('#status').textContent = `读取失败：${error.message}`; } event.target.value = ''; };

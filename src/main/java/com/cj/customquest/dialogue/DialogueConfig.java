@@ -21,14 +21,26 @@ public final class DialogueConfig {
     /** 首次对话时初始化的玩家级 data 变量（key -> value） */
     private final Map<String, String> defaultData;
     private final List<DialogueBranch> branches;
+    private final Set<String> entryBranchIds;
+    private final boolean nodeFormat;
+    private final List<String> warnings;
 
     public DialogueConfig(String file, List<Integer> npcIds, String title,
                           Map<String, String> defaultData, List<DialogueBranch> branches) {
+        this(file, npcIds, title, defaultData, branches, Set.of(), false, List.of());
+    }
+
+    private DialogueConfig(String file, List<Integer> npcIds, String title,
+                           Map<String, String> defaultData, List<DialogueBranch> branches,
+                           Set<String> entryBranchIds, boolean nodeFormat, List<String> warnings) {
         this.file = file;
-        this.npcIds = npcIds;
+        this.npcIds = List.copyOf(npcIds);
         this.title = title;
-        this.defaultData = defaultData;
-        this.branches = branches;
+        this.defaultData = Map.copyOf(defaultData);
+        this.branches = List.copyOf(branches);
+        this.entryBranchIds = Set.copyOf(entryBranchIds);
+        this.nodeFormat = nodeFormat;
+        this.warnings = List.copyOf(warnings);
     }
 
     public String getFile() {
@@ -51,6 +63,18 @@ public final class DialogueConfig {
         return branches;
     }
 
+    public boolean isNodeFormat() {
+        return nodeFormat;
+    }
+
+    public boolean isEntryBranch(String branchId) {
+        return entryBranchIds.contains(branchId);
+    }
+
+    public List<String> getWarnings() {
+        return warnings;
+    }
+
     public static DialogueConfig load(String file, ConfigurationSection root) {
         List<Integer> npcIds = new ArrayList<>();
         Object npcValue = root.contains("npc id") ? root.get("npc id") : root.get("npc");
@@ -71,7 +95,7 @@ public final class DialogueConfig {
         }
         String title = root.getString("title", "");
 
-        if (root.contains("when")) {
+        if (hasNodeEntries(root.get("when"))) {
             return loadNodeFormat(file, root, npcIds, title);
         }
 
@@ -97,8 +121,9 @@ public final class DialogueConfig {
     }
 
     private static DialogueConfig loadNodeFormat(String file, ConfigurationSection root,
-                                                 List<Integer> npcIds, String title) {
+                                                  List<Integer> npcIds, String title) {
         Map<String, ConditionSet> conditions = new LinkedHashMap<>();
+        List<String> warnings = new ArrayList<>();
         Object rawWhen = root.get("when");
         if (rawWhen instanceof List<?> entries) {
             for (Object entry : entries) {
@@ -109,7 +134,12 @@ public final class DialogueConfig {
                 if (open == null || open.isBlank()) {
                     continue;
                 }
-                conditions.putIfAbsent(open.trim(), parseConditionSet(stringValue(map.get("if"))));
+                String branchId = open.trim();
+                if (conditions.containsKey(branchId)) {
+                    warnings.add("对话文件 " + file + " 的 when.open 重复：" + branchId + "，已保留第一次配置");
+                    continue;
+                }
+                conditions.put(branchId, parseConditionSet(stringValue(map.get("if"))));
             }
         }
 
@@ -123,7 +153,12 @@ public final class DialogueConfig {
         List<DialogueBranch> branches = new ArrayList<>();
         Set<String> loaded = new java.util.HashSet<>();
         for (String nodeId : conditions.keySet()) {
-            DialogueBranch branch = loadNode(root.getConfigurationSection(nodeId), nodeId,
+            ConfigurationSection section = root.getConfigurationSection(nodeId);
+            if (section == null) {
+                warnings.add("对话文件 " + file + " 的入口分支不存在：" + nodeId);
+                continue;
+            }
+            DialogueBranch branch = loadNode(section, nodeId,
                     conditions.get(nodeId));
             if (branch != null) {
                 branches.add(branch);
@@ -141,7 +176,23 @@ public final class DialogueConfig {
             }
         }
 
-        return new DialogueConfig(file, npcIds, title, Map.of(), branches);
+        validateGotoTargets(file, branches, warnings);
+        return new DialogueConfig(file, npcIds, title, Map.of(), branches,
+                conditions.keySet(), true, warnings);
+    }
+
+    private static boolean hasNodeEntries(Object value) {
+        if (value instanceof List<?> entries) {
+            for (Object entry : entries) {
+                if (entry instanceof Map<?, ?> map) {
+                    Object open = map.get("open");
+                    if (open != null && !String.valueOf(open).isBlank()) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private static DialogueBranch loadNode(ConfigurationSection section, String nodeId,
@@ -173,13 +224,15 @@ public final class DialogueConfig {
             }
             if (option.containsKey("then")) {
                 option.put("kether", option.get("then"));
+                if (!option.containsKey("close")) {
+                    option.put("close", false);
+                }
             }
             ConfigurationSection optionSection = optionsSection.createSection(optionId);
             for (Map.Entry<String, Object> entry : option.entrySet()) {
                 optionSection.set(entry.getKey(), entry.getValue());
             }
         }
-        converted.set("default", section.getBoolean("default", false));
         return DialogueBranch.load(nodeId, converted);
     }
 
@@ -187,7 +240,11 @@ public final class DialogueConfig {
         if (Set.of("title", "npc", "npc id", "when", "default-data", "branches").contains(key)) {
             return false;
         }
-        return root.isConfigurationSection(key);
+        ConfigurationSection section = root.getConfigurationSection(key);
+        return section != null
+                && (section.contains("npc")
+                || section.contains("player")
+                || section.contains("format"));
     }
 
     private static ConditionSet parseConditionSet(String raw) {
@@ -220,6 +277,38 @@ public final class DialogueConfig {
 
     private static String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    private static void validateGotoTargets(String file, List<DialogueBranch> branches,
+                                            List<String> warnings) {
+        Set<String> branchIds = branches.stream().map(DialogueBranch::getId).collect(java.util.stream.Collectors.toSet());
+        for (DialogueBranch branch : branches) {
+            for (DialogueOption option : branch.getOptions()) {
+                for (String action : option.getKether()) {
+                    String target = gotoTarget(action);
+                    if (target != null && !branchIds.contains(target)) {
+                        warnings.add("对话文件 " + file + " 的分支 " + branch.getId()
+                                + " 选项 " + option.getId() + " 跳转目标不存在：" + target);
+                    }
+                }
+            }
+        }
+    }
+
+    private static String gotoTarget(String action) {
+        if (action == null) {
+            return null;
+        }
+        String value = action.replace('\ufeff', ' ').trim();
+        if (!value.regionMatches(true, 0, "goto", 0, 4)
+                || (value.length() > 4 && !Character.isWhitespace(value.charAt(4)))) {
+            return null;
+        }
+        String target = value.substring(4).trim();
+        if (target.length() >= 2 && target.startsWith("\"") && target.endsWith("\"")) {
+            target = target.substring(1, target.length() - 1).trim();
+        }
+        return target.isEmpty() ? null : target;
     }
 
     private record ConditionSet(List<String> dataConditions, List<String> papiConditions) {

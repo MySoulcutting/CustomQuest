@@ -23,6 +23,7 @@ import taboolib.common.platform.service.PlatformCommand;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -69,7 +70,7 @@ public final class MainCommand {
             sendHelp(sender);
             return true;
         }
-        String sub = args[0].toLowerCase();
+        String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "help" -> sendHelp(sender);
             case "reload" -> {
@@ -78,7 +79,7 @@ public final class MainCommand {
                 Messages.send(sender, "reloaded");
             }
             case "list" -> {
-                requireAdmin(sender);
+                if (!requireAdmin(sender)) return true;
                 listQuests(sender);
             }
             case "quest" -> handleQuest(sender, args);
@@ -117,7 +118,7 @@ public final class MainCommand {
             Messages.send(sender, "usage-quest");
             return;
         }
-        String action = args[1].toLowerCase();
+        String action = args[1].toLowerCase(Locale.ROOT);
         switch (action) {
             case "accept" -> {
                 if (!requireAdmin(sender)) return;
@@ -186,7 +187,7 @@ public final class MainCommand {
             Messages.send(sender, "usage-quest-nav");
             return;
         }
-        String action = args[2].toLowerCase();
+        String action = args[2].toLowerCase(Locale.ROOT);
         Quest quest = QuestManager.getInstance().getQuest(args[3]);
         if (quest == null) {
             Messages.send(sender, "quest-not-found", Map.of("id", args[3]));
@@ -221,7 +222,7 @@ public final class MainCommand {
             Messages.send(sender, "usage-data");
             return;
         }
-        String action = args[1].toLowerCase();
+        String action = args[1].toLowerCase(Locale.ROOT);
         Player target = Bukkit.getPlayer(args[2]);
         if (target == null) {
             Messages.send(sender, "player-not-found");
@@ -245,10 +246,6 @@ public final class MainCommand {
                         "player", target.getName(), "id", npcId, "value", value));
             }
             case "get" -> {
-                if (args.length < 4) {
-                    Messages.send(sender, "usage-data");
-                    return;
-                }
                 String value = CitizensHook.getData(target, npc);
                 if (value == null) {
                     Messages.send(sender, "npc-data-missing", Map.of("player", target.getName(), "id", npcId));
@@ -258,10 +255,6 @@ public final class MainCommand {
                 }
             }
             case "remove" -> {
-                if (args.length < 4) {
-                    Messages.send(sender, "usage-data");
-                    return;
-                }
                 CitizensHook.removeData(target, npc);
                 Messages.send(sender, "npc-data-removed", Map.of("player", target.getName(), "id", npcId));
             }
@@ -334,7 +327,7 @@ public final class MainCommand {
         if (args.length == 1) {
             return filter(SUB_COMMANDS, args[0]);
         }
-        String sub = args[0].toLowerCase();
+        String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "quest" -> {
                 if (args.length == 2) {
@@ -382,9 +375,9 @@ public final class MainCommand {
     }
 
     private static List<String> filter(List<String> source, String prefix) {
-        String lower = prefix.toLowerCase();
+        String lower = prefix.toLowerCase(Locale.ROOT);
         return source.stream()
-                .filter(value -> value.toLowerCase().startsWith(lower))
+                .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(lower))
                 .collect(Collectors.toList());
     }
 }

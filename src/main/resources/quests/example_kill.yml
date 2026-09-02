@@ -40,6 +40,7 @@ type: kill_mob
 # 格式：世界名,x,y,z
 # ----------------------------------------------------------------
 # navigate: "world,100,64,200"
+# navigate-on-accept: true   # 接取任务成功后自动开启导航（需同时配置 navigate）
 
 # ----------------------------------------------------------------
 # 目标配置（一个任务可包含多个目标）
@@ -66,7 +67,7 @@ objectives:
 
 # 说明：接取任务不校验前置条件。
 # 任务门控（谁能看到/点击接取选项）请使用 NPC 对话分支的 data / PAPI 条件，
-# 或在对话选项中用 accept-quest 快捷指令 / Kether 动作 quest accept 接取。
+# 或在对话选项的 then: | 中使用 Kether 动作 quest accept 接取。
 
 # 达成全部目标时执行一次。message 为聊天提示动作，支持 %quest_name% / %quest_id%。
 # 击杀事件没有“当前 NPC”上下文，修改分支变量时需要明确填写 Citizens NPC id。

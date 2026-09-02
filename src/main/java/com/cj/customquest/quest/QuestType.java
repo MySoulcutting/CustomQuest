@@ -9,7 +9,7 @@ public enum QuestType {
     KILL_MOB("kill_mob", "击杀怪物"),
     /** 提交物品（支持多种物品） */
     SUBMIT_ITEM("submit_item", "提交物品"),
-    /** 描述任务（无目标，仅展示，只能通过指令强制完成） */
+    /** 描述任务（无目标，仅展示，只能强制完成） */
     DESCRIBE("describe", "描述任务");
 
     private final String key;

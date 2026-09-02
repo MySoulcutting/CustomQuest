@@ -22,9 +22,9 @@ suxing1:
   player:
     - reply: '&f你有什么任务'
       then: |
+        quest accept example_kill
         npc data set 5 1
         goto suxing2
-      accept-quest: example_kill
     - reply: '好的，稍后见'
       then: |
         close
@@ -37,9 +37,9 @@ suxing2:
   player:
     - reply: '&e提交物品任务'
       then: |
+        quest accept example_submit
         npc data set 5 2
         goto submit_item
-      accept-quest: example_submit
     - reply: '&7稍后见'
       then: |
         close

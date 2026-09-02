@@ -16,34 +16,27 @@ import java.util.Map;
  *   <li>{@code data: key} + {@code data-value: value} —— NPC data 等于指定值</li>
  *   <li>{@code data: ["key==value", "key>=1"]} —— NPC data 条件列表</li>
  *   <li>{@code papi: ["%var% >= 5"]} —— PAPI 条件列表</li>
- *   <li>{@code default: true} —— 兜底分支（无条件时自动视为 default）</li>
  * </ul>
  */
 public final class DialogueBranch {
 
     private final String id;
-    private final boolean defaultBranch;
     private final List<String> dataConditions;
     private final List<String> papiConditions;
     private final List<String> lines;
     private final List<DialogueOption> options;
 
-    public DialogueBranch(String id, boolean defaultBranch, List<String> dataConditions,
+    public DialogueBranch(String id, List<String> dataConditions,
                           List<String> papiConditions, List<String> lines, List<DialogueOption> options) {
         this.id = id;
-        this.defaultBranch = defaultBranch;
-        this.dataConditions = dataConditions;
-        this.papiConditions = papiConditions;
-        this.lines = lines;
-        this.options = options;
+        this.dataConditions = List.copyOf(dataConditions);
+        this.papiConditions = List.copyOf(papiConditions);
+        this.lines = List.copyOf(lines);
+        this.options = List.copyOf(options);
     }
 
     public String getId() {
         return id;
-    }
-
-    public boolean isDefaultBranch() {
-        return defaultBranch;
     }
 
     public List<String> getDataConditions() {
@@ -99,30 +92,22 @@ public final class DialogueBranch {
                     throw new IllegalArgumentException("对话选项 ID 必须为 1-64 UTF-8 bytes 且不能包含控制字符: " + key);
                 }
                 String text = optionSection.getString("text", "");
-                // 接取任务快捷指令（无需写 Kether）
-                String acceptQuest = normalizeQuestId(optionSection.getString("accept-quest", null));
-                // 接取成功后设置的 NPC data 变量（"key=value"）
-                List<String> acceptData = optionSection.isString("accept-data")
-                        ? new ArrayList<>(List.of(optionSection.getString("accept-data")))
-                        : optionSection.getStringList("accept-data");
                 // 提交任务快捷指令：成功时才会扣物、完成任务并继续选项 Kether。
                 String submitQuest = normalizeQuestId(optionSection.getString("submit-quest", null));
                 List<QuestObjective> submitItems = loadSubmitItems(optionSection, key);
-                if (acceptQuest != null && submitQuest != null) {
-                    throw new IllegalArgumentException("对话选项不能同时配置 accept-quest 与 submit-quest: " + key);
-                }
                 if (!submitItems.isEmpty() && submitQuest == null) {
                     throw new IllegalArgumentException("对话选项配置 submit-items 时必须同时配置 submit-quest: " + key);
                 }
                 List<String> kether = readActionList(optionSection.get("kether"));
-                boolean close = optionSection.getBoolean("close", true);
-                options.add(new DialogueOption(key, text, acceptQuest, acceptData,
-                        submitQuest, submitItems, kether, close));
+                boolean close = optionSection.contains("close")
+                        ? optionSection.getBoolean("close")
+                        : !containsGoto(kether);
+                options.add(new DialogueOption(key, text, submitQuest,
+                        submitItems, kether, close));
             }
         }
 
-        boolean defaultBranch = section.getBoolean("default", false);
-        return new DialogueBranch(branchId, defaultBranch, dataConditions, papiConditions, lines, options);
+        return new DialogueBranch(branchId, dataConditions, papiConditions, lines, options);
     }
 
     private static String normalizeQuestId(String value) {
@@ -146,6 +131,14 @@ public final class DialogueBranch {
                 .map(String::trim)
                 .filter(line -> !line.isEmpty())
                 .toList();
+    }
+
+    private static boolean containsGoto(List<String> actions) {
+        return actions.stream().anyMatch(action -> {
+            String trimmed = action.trim();
+            return trimmed.regionMatches(true, 0, "goto", 0, 4)
+                    && (trimmed.length() == 4 || Character.isWhitespace(trimmed.charAt(4)));
+        });
     }
 
     /** 严格解析 NPC 提交按钮的物品覆盖清单；配置错误时拒绝加载整个对话文件。 */

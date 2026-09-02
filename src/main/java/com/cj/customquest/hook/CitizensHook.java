@@ -51,7 +51,8 @@ public final class CitizensHook {
     /** 获取玩家在指定 NPC 上的 data 值（不存在返回 null） */
     public static String getData(Player player, NPC npc, String key) {
         if (player == null || npc == null) return null;
-        return dataOf(player, npc.getId()).get(key);
+        Map<String, String> data = dataOf(player, npc.getId());
+        return data == null ? null : data.get(key);
     }
 
     /** 获取玩家在指定 NPC 上的唯一变量值（变量标识使用 NPC ID）。 */
@@ -68,19 +69,29 @@ public final class CitizensHook {
     /** 写入玩家在指定 NPC 上的 data 值（持久化，每个玩家独立） */
     public static void setData(Player player, NPC npc, String key, String value) {
         if (player == null || npc == null) return;
-        dataOf(player, npc.getId()).put(key, value == null ? "" : value);
+        Map<String, String> data = dataOf(player, npc.getId());
+        if (data != null) {
+            data.put(key, value == null ? "" : value);
+        }
     }
 
     /** 写入玩家在指定 NPC 上的唯一变量值（变量标识使用 NPC ID）。 */
     public static void setData(Player player, NPC npc, String value) {
         if (npc == null) return;
+        if (value == null || value.trim().equalsIgnoreCase("null")) {
+            removeData(player, npc);
+            return;
+        }
         setData(player, npc, String.valueOf(npc.getId()), value);
     }
 
     /** 删除玩家在指定 NPC 上的 data 值 */
     public static void removeData(Player player, NPC npc, String key) {
         if (player == null || npc == null) return;
-        dataOf(player, npc.getId()).remove(key);
+        Map<String, String> data = dataOf(player, npc.getId());
+        if (data != null) {
+            data.remove(key);
+        }
     }
 
     /** 删除玩家在指定 NPC 上的唯一变量值。 */
@@ -91,7 +102,9 @@ public final class CitizensHook {
 
     /** 玩家在指定 NPC 上是否存在该 data */
     public static boolean hasData(Player player, NPC npc, String key) {
-        return player != null && npc != null && dataOf(player, npc.getId()).containsKey(key);
+        if (player == null || npc == null) return false;
+        Map<String, String> data = dataOf(player, npc.getId());
+        return data != null && data.containsKey(key);
     }
 
     /**
@@ -103,6 +116,9 @@ public final class CitizensHook {
         if (player == null || npc == null) return false;
         if (conditions == null || conditions.isEmpty()) return true;
         for (String raw : conditions) {
+            if (raw == null) {
+                continue;
+            }
             String condition = raw.trim();
             if (condition.isEmpty()) continue;
 
@@ -130,7 +146,11 @@ public final class CitizensHook {
     }
 
     private static Map<String, String> dataOf(Player player, int npcId) {
-        return QuestManager.getInstance().getPlayerData(player).npcDataOf(npcId);
+        QuestManager manager = QuestManager.getInstance();
+        if (manager == null || manager.getStorage() == null || player == null) {
+            return null;
+        }
+        return manager.getPlayerData(player).npcDataOf(npcId);
     }
 
     private static boolean compare(String actual, String expected, String op) {

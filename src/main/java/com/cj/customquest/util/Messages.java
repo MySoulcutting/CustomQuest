@@ -10,7 +10,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Level;
 
 /**
  * 语言/消息管理（messages.yml）。
@@ -43,7 +45,6 @@ public final class Messages {
         DEFAULTS.put("quest-not-repeatable", "&c该任务已经完成过，无法重复接取。");
         DEFAULTS.put("items-not-enough", "&c缺少 &f{item} &e{missing} &c个（需要 &e{need}&c，已有 &e{have}&c）。");
         DEFAULTS.put("items-submitted", "&7已提交 &e{amount} &7个 &f{item} &7。");
-        DEFAULTS.put("dialogue-no-config", "&c该 NPC 没有配置对话。");
         DEFAULTS.put("dialogue-submit-items-invalid", "&c该对话的 submit-items 只能用于提交物品任务，请联系管理员。");
         DEFAULTS.put("npc-not-found", "&cCitizens NPC &e{id} &c不存在。");
         DEFAULTS.put("npc-data-set", "&a已为玩家 &f{player} &a设置 NPC &f{id} &a的变量值为 &f{value}&a。");
@@ -52,9 +53,6 @@ public final class Messages {
         DEFAULTS.put("npc-data-missing", "&7玩家 &f{player} &7在 NPC &f{id} &7尚未设置变量。");
         DEFAULTS.put("nav-no-location", "&c任务 &e{name} &c未配置导航位置。");
         DEFAULTS.put("nav-client-required", "&c任务导航需要安装并启用 SoulCore Fabric 客户端 Mod。");
-        DEFAULTS.put("nav-start", "&a已开始导航：&f{name}");
-        DEFAULTS.put("nav-cancelled", "&7已取消导航。");
-        DEFAULTS.put("nav-arrived", "&a已到达导航目标：&f{name}");
         DEFAULTS.put("nav-cross-world", "&c导航目标与当前不在同一世界，已取消导航。");
         DEFAULTS.put("nav-set", "&a已设置任务 &f{name} &a的导航位置为你的当前位置。");
         DEFAULTS.put("nav-removed", "&a已移除任务 &f{name} &a的导航位置。");
@@ -101,7 +99,8 @@ public final class Messages {
                 dataFolder.mkdirs();
                 file.createNewFile();
             } catch (Exception e) {
-                e.printStackTrace();
+                Bukkit.getLogger().log(Level.WARNING,
+                        "[CustomQuest] 创建消息配置文件失败: " + file.getAbsolutePath(), e);
             }
         }
         config = YamlConfiguration.loadConfiguration(file);
@@ -122,6 +121,13 @@ public final class Messages {
             String value = config.getString(key);
             if (value != null && value.contains("{key}")) {
                 config.set(key, DEFAULTS.get(key));
+                changed = true;
+            }
+        }
+        // 清理已废弃的导航状态提示；导航状态由客户端 HUD 展示。
+        for (String key : List.of("nav-start", "nav-cancelled", "nav-arrived")) {
+            if (config.contains(key)) {
+                config.set(key, null);
                 changed = true;
             }
         }
@@ -146,7 +152,8 @@ public final class Messages {
         try {
             config.save(file);
         } catch (Exception e) {
-            e.printStackTrace();
+            Bukkit.getLogger().log(Level.WARNING,
+                    "[CustomQuest] 保存消息配置文件失败: " + file.getAbsolutePath(), e);
         }
     }
 
@@ -209,7 +216,7 @@ public final class Messages {
         if (value == null) {
             return false;
         }
-        String plain = value.replaceAll("(?i)&[0-9A-FK-ORX]", "").trim().toLowerCase(java.util.Locale.ROOT);
+        String plain = value.replaceAll("(?i)&[0-9A-FK-ORX]", "").trim().toLowerCase(Locale.ROOT);
         return plain.equals("/quest") || plain.startsWith("/quest ");
     }
 }

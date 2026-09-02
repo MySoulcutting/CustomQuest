@@ -239,8 +239,10 @@ public final class QuestBoard {
             List<String> renderedQuestLines = buildQuestLines(player, quest);
             String trackingTitle = renderedQuestLines.isEmpty()
                     ? TextUtil.parse(player, quest.getName()) : renderedQuestLines.getFirst();
+            // 自定义 board-title 是 HUD/追踪协议中的实际标题；标题颜色也必须从它读取，
+            // 否则客户端会继续使用任务 name 的颜色，造成编辑器里的计分板标题看起来无效。
             int trackingTitleRgb = QuestTrackingSnapshot.legacyTitleRgb(
-                    TextUtil.parse(player, quest.getName()));
+                    TextUtil.parse(player, trackingTitle));
             List<QuestTrackingSnapshot.Line> taskLines = new ArrayList<>();
             if (!quest.getBoardLines().isEmpty() || quest.getType() == QuestType.DESCRIBE) {
                 for (int index = 1; index < renderedQuestLines.size()

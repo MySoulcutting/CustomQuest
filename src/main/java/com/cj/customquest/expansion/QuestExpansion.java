@@ -45,41 +45,46 @@ public class QuestExpansion extends PlaceholderExpansion {
 
     @Override
     public String onRequest(OfflinePlayer offlinePlayer, @NotNull String params) {
-        if (offlinePlayer == null) {
+        QuestManager manager = QuestManager.getInstance();
+        if (offlinePlayer == null || manager == null || manager.getStorage() == null) {
             return "";
         }
-        PlayerQuestData data = QuestManager.getInstance().getStorage().getOrNull(offlinePlayer.getUniqueId());
+        PlayerQuestData data = manager.getStorage().getOrNull(offlinePlayer.getUniqueId());
         if (data == null) {
             return "";
         }
-        return handle(data, offlinePlayer, params);
+        return handle(manager, data, offlinePlayer, params);
     }
 
     @Override
     public String onPlaceholderRequest(Player player, @NotNull String params) {
-        PlayerQuestData data = QuestManager.getInstance().getPlayerData(player);
-        return handle(data, player, params);
+        QuestManager manager = QuestManager.getInstance();
+        if (player == null || manager == null || manager.getStorage() == null) {
+            return "";
+        }
+        PlayerQuestData data = manager.getPlayerData(player);
+        return data == null ? "" : handle(manager, data, player, params);
     }
 
-    private String handle(PlayerQuestData data, OfflinePlayer player, String params) {
+    private String handle(QuestManager manager, PlayerQuestData data, OfflinePlayer player, String params) {
         if (params.startsWith("progress_")) {
-            Quest quest = QuestManager.getInstance().getQuest(params.substring("progress_".length()));
+            Quest quest = manager.getQuest(params.substring("progress_".length()));
             if (quest == null) return "0";
             if (player instanceof Player online) {
-                return String.valueOf(QuestManager.getInstance().getProgress(online, quest));
+                return String.valueOf(manager.getProgress(online, quest));
             }
             return "0";
         }
         if (params.startsWith("has_")) {
-            Quest quest = QuestManager.getInstance().getQuest(params.substring("has_".length()));
+            Quest quest = manager.getQuest(params.substring("has_".length()));
             return quest == null ? "false" : String.valueOf(data.isAccepted(quest.getId()));
         }
         if (params.startsWith("done_")) {
-            Quest quest = QuestManager.getInstance().getQuest(params.substring("done_".length()));
+            Quest quest = manager.getQuest(params.substring("done_".length()));
             return quest == null ? "false" : String.valueOf(data.isCompleted(quest.getId()));
         }
         if (params.startsWith("state_")) {
-            Quest quest = QuestManager.getInstance().getQuest(params.substring("state_".length()));
+            Quest quest = manager.getQuest(params.substring("state_".length()));
             if (quest == null) return "none";
             if (data.isAccepted(quest.getId())) return "accepted";
             if (data.isCompleted(quest.getId())) return "done";
