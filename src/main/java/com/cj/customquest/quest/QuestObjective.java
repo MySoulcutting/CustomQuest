@@ -11,9 +11,16 @@ public final class QuestObjective {
     private final String display;
     private final String itemName;
     private final String boardLine;
+    /** 是否为 EpicCraftingsPlus 合成目标，而非 MythicMobs 击杀目标。 */
+    private final boolean crafting;
 
     private QuestObjective(String target, Material material, String neigeItemId, int amount,
                            String display, String itemName, String boardLine) {
+        this(target, material, neigeItemId, amount, display, itemName, boardLine, false);
+    }
+
+    private QuestObjective(String target, Material material, String neigeItemId, int amount,
+                           String display, String itemName, String boardLine, boolean crafting) {
         this.target = target;
         this.material = material;
         this.neigeItemId = neigeItemId;
@@ -21,6 +28,7 @@ public final class QuestObjective {
         this.display = display;
         this.itemName = itemName;
         this.boardLine = boardLine;
+        this.crafting = crafting;
     }
 
     public String getTarget() { return target; }
@@ -34,7 +42,8 @@ public final class QuestObjective {
 
     public String getItemName() { return itemName; }
     public String getBoardLine() { return boardLine; }
-    public boolean isKill() { return material == null && neigeItemId == null; }
+    public boolean isCrafting() { return crafting; }
+    public boolean isKill() { return !crafting && material == null && neigeItemId == null; }
 
     public static QuestObjective kill(String mob, int amount, String display) {
         return kill(mob, amount, display, null);
@@ -60,6 +69,14 @@ public final class QuestObjective {
     public static QuestObjective neigeItem(String itemId, int amount, String display, String itemName,
                                            String boardLine) {
         return new QuestObjective(itemId, null, itemId, amount, display, itemName, boardLine);
+    }
+
+    public static QuestObjective crafting(String craftingName, int amount, String display, String boardLine) {
+        return new QuestObjective(craftingName, null, null, amount, display, null, boardLine, true);
+    }
+
+    public static QuestObjective craftingCount(int amount, String display, String boardLine) {
+        return crafting("*", amount, display, boardLine);
     }
 
     public static QuestObjective parseItem(String text) {
@@ -92,13 +109,11 @@ public final class QuestObjective {
                 } catch (NumberFormatException ignored) {
                     if (strict) return null;
                 }
-            } else if (strict) {
-                return null;
             }
             if (strict && (parts.length != 3 || parts[1].isBlank() || amount < 1)) return null;
             return neigeItem(parts[1].trim(), strict ? amount : Math.max(1, amount), display, itemName, boardLine);
         }
-        String[] materialParts = raw.split("[:\s]+", -1);
+        String[] materialParts = raw.split("[:\\s]+", -1);
         Material material = Material.matchMaterial(materialParts[0]);
         if (material == null) return null;
         int amount = 1;

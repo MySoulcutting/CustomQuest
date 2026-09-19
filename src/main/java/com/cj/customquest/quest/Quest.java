@@ -17,6 +17,8 @@ import java.util.Map;
  *   <li>kill_mob：单目标简写 {@code mob: SkeletonKing} + {@code amount: 10}；
  *       或多目标 {@code objectives: [{mob: ..., amount: ...}, ...]}</li>
  *   <li>submit_item：{@code items: ["DIAMOND:5", "IRON_INGOT:10"]}（天然支持多种物品）</li>
+ *   <li>craft_item：监听 EpicCraftingsPlus 成功合成事件，匹配 {@code crafting} 名称并累计次数</li>
+ *   <li>craft_count：监听 EpicCraftingsPlus 成功合成事件，不限合成物品只累计次数</li>
  * </ul>
  * <p>
  * 注意：接取任务<b>不校验前置条件</b>，任务门控请使用 NPC 对话分支条件（data / PAPI 条件）。
@@ -154,6 +156,22 @@ public final class Quest {
             if (amount == null) return null;
             return QuestObjective.kill(mob, amount, displayName, boardLine);
         }
+        if (type == QuestType.CRAFT_ITEM || type == QuestType.CRAFT_COUNT) {
+            Integer amount = positiveInt(values.get("amount"), questId + " " + display, errors);
+            if (amount == null) return null;
+            String displayName = strOf(values.get("name"));
+            if (type == QuestType.CRAFT_COUNT) {
+                return QuestObjective.craftingCount(amount, displayName, boardLine);
+            }
+            String craftingName = blankToNull(strOf(values.get("crafting")));
+            if (craftingName == null) craftingName = blankToNull(strOf(values.get("craft")));
+            if (craftingName == null) craftingName = blankToNull(strOf(values.get("crafting-name")));
+            if (craftingName == null) {
+                errors.add("任务 " + questId + ": " + display + " 缺少 crafting（EpicCraftingsPlus 合成名称）");
+                return null;
+            }
+            return QuestObjective.crafting(craftingName, amount, displayName, boardLine);
+        }
         String displayName = strOf(values.get("name"));
         String itemName = strOf(values.get("item-name"));
         String neigeItem = blankToNull(strOf(values.get("neige-item")));
@@ -244,7 +262,7 @@ public final class Quest {
         String id = section.getString("quest-id", fileId);
         QuestType type = QuestType.parse(section.getString("type", ""));
         if (type == null) {
-            errors.add("任务 " + id + ": 未知的任务类型 '" + section.getString("type") + "'（可选: kill_mob / submit_item / describe）");
+            errors.add("任务 " + id + ": 未知的任务类型 '" + section.getString("type") + "'（可选: kill_mob / submit_item / craft_item / craft_count / describe）");
             return null;
         }
         String name = section.getString("name", id);
@@ -297,6 +315,20 @@ public final class Quest {
                     Integer amount = positiveInt(section.get("amount"), id, errors);
                     if (amount == null) return null;
                     objectives.add(QuestObjective.kill(mob, amount, section.getString("name", null)));
+                } else if (type == QuestType.CRAFT_ITEM || type == QuestType.CRAFT_COUNT) {
+                    Integer amount = positiveInt(section.get("amount"), id, errors);
+                    if (amount == null) return null;
+                    String displayName = section.getString("name", null);
+                    if (type == QuestType.CRAFT_COUNT) {
+                        objectives.add(QuestObjective.craftingCount(amount, displayName, null));
+                    } else {
+                        String craftingName = section.getString("crafting", section.getString("craft", ""));
+                        if (craftingName.isBlank()) {
+                            errors.add("任务 " + id + ": craft_item 类型必须配置 crafting 或 objectives（EpicCraftingsPlus 合成名称）");
+                            return null;
+                        }
+                        objectives.add(QuestObjective.crafting(craftingName, amount, displayName, null));
+                    }
                 } else {
                     for (String line : stringList(section, "items")) {
                         QuestObjective objective = QuestObjective.parseItemStrict(line, null, null, null);
@@ -307,7 +339,7 @@ public final class Quest {
                         objectives.add(objective);
                     }
                     if (objectives.isEmpty()) {
-                        errors.add("任务 " + id + ": submit_item 类型必须配置 items 或 objectives 列表");
+                        errors.add("任务 " + id + ": " + type.getKey() + " 类型缺少有效 objectives 配置");
                         return null;
                     }
                 }

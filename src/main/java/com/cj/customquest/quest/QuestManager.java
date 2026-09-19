@@ -185,7 +185,7 @@ public final class QuestManager {
     }
 
     private int objectiveProgressRaw(Player player, Quest quest, int index, QuestObjective objective) {
-        if (objective.isKill()) {
+        if (objective.isKill() || objective.isCrafting()) {
             QuestProgress progress = storage.get(player).getAccepted().get(quest.getId());
             return progress == null ? 0 : progress.getCounter(counterKey(progress, quest.getObjectives(), index));
         }
@@ -406,7 +406,46 @@ public final class QuestManager {
         }
     }
 
-    // ---------------- 条件达成 ----------------
+
+    /**
+     * EpicCraftingsPlus 成功合成事件：每个成功合成事件计为 1 次。
+     * craft_item 只匹配配置的合成名称；craft_count 不限制物品名称。
+     */
+    public void onEpicCraft(Player player, String craftingName) {
+        if (player == null) return;
+        boolean anyProgressed = false;
+        for (Map.Entry<String, QuestProgress> entry
+                : new ArrayList<>(storage.get(player).getAccepted().entrySet())) {
+            Quest quest = getQuest(entry.getKey());
+            if (quest == null || (quest.getType() != QuestType.CRAFT_ITEM
+                    && quest.getType() != QuestType.CRAFT_COUNT)) {
+                continue;
+            }
+            List<QuestObjective> objectives = quest.getObjectives();
+            boolean progressed = false;
+            for (int i = 0; i < objectives.size(); i++) {
+                QuestObjective objective = objectives.get(i);
+                if (!objective.isCrafting()) continue;
+                if (quest.getType() == QuestType.CRAFT_ITEM
+                        && (craftingName == null || !objective.getTarget().equalsIgnoreCase(craftingName))) {
+                    continue;
+                }
+                String key = counterKey(entry.getValue(), objectives, i);
+                int current = entry.getValue().getCounter(key);
+                if (current < objective.getAmount()) {
+                    entry.getValue().setCounter(key, current + 1);
+                    progressed = true;
+                }
+            }
+            if (progressed) {
+                anyProgressed = true;
+                updateConditionState(player, quest, entry.getValue());
+            }
+        }
+        if (anyProgressed) {
+            QuestBoard.getInstance().update(player);
+        }
+    }    // ---------------- 条件达成 ----------------
 
     /** 背包事件使用：在玩家有提交物品任务时安排下一 tick 条件校准与追踪刷新。 */
     public void queueInventoryRefresh(Player player) {
@@ -688,11 +727,14 @@ public final class QuestManager {
         int occurrence = 1;
         for (int i = 0; i < index; i++) {
             QuestObjective previous = objectives.get(i);
-            if (previous.isKill() && previous.getTarget().equalsIgnoreCase(objective.getTarget())) {
+            if (previous.isCrafting() == objective.isCrafting() &&
+                    previous.isKill() == objective.isKill() &&
+                    previous.getTarget().equalsIgnoreCase(objective.getTarget())) {
                 occurrence++;
             }
         }
-        return "mob:" + target.length() + ":" + target + ":" + occurrence;
+        String prefix = objective.isCrafting() ? "craft:" : "mob:";
+        return prefix + target.length() + ":" + target + ":" + occurrence;
     }
 
     // ---------------- 消息 ----------------

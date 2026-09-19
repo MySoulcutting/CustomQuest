@@ -264,7 +264,11 @@ public final class QuestBoard {
                         int total = Math.max(1, objective.getAmount());
                         int current = Math.max(0, Math.min(
                                 QuestManager.getInstance().getObjectiveProgress(player, quest, index), total));
-                        String verb = quest.getType() == QuestType.KILL_MOB ? "击败 " : "收集 ";
+                        String verb = switch (quest.getType()) {
+                            case KILL_MOB -> "击败 ";
+                            case CRAFT_ITEM, CRAFT_COUNT -> "合成 ";
+                            default -> "收集 ";
+                        };
                         taskLines.add(QuestTrackingSnapshot.Line.progress(
                                 TextUtil.parse(player, verb + objective.getDisplay()),
                                 current,
@@ -274,7 +278,7 @@ public final class QuestBoard {
             }
             QuestTrackingSnapshot.TaskType type = switch (quest.getType()) {
                 case KILL_MOB -> QuestTrackingSnapshot.TaskType.KILL;
-                case SUBMIT_ITEM -> QuestTrackingSnapshot.TaskType.SUBMIT;
+                case SUBMIT_ITEM, CRAFT_ITEM, CRAFT_COUNT -> QuestTrackingSnapshot.TaskType.SUBMIT;
                 case DESCRIBE -> QuestTrackingSnapshot.TaskType.DESCRIBE;
             };
             candidates.add(new QuestTrackingSnapshot.Task(

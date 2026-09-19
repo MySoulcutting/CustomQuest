@@ -190,8 +190,19 @@
     q.file = file.replace(/\.(ya?ml)$/i, ''); q.id = String(data['quest-id'] || q.file); q.name = String(data.name ?? ''); q.type = String(data.type || 'describe'); q.description = textList(data.description);
     let raw = data.objectives;
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) raw = Object.values(raw);
-    if (!Array.isArray(raw)) raw = q.type === 'kill_mob' && data.mob ? [{ mob: data.mob, amount: data.amount }] : q.type === 'submit_item' && data.item ? [{ item: data.item }] : [];
-    q.objectives = raw.map(item => { if (q.type === 'kill_mob') return { target: String(item.mob ?? ''), amount: Number(item.amount) || 1, display: String(item.name ?? ''), itemName: '', boardLine: String(item['board-line'] ?? ''), kind: 'normal' }; return importedObjective(item); });
+    if (!Array.isArray(raw)) {
+      if (q.type === 'kill_mob' && data.mob) raw = [{ mob: data.mob, amount: data.amount }];
+      else if (q.type === 'submit_item' && data.item) raw = [{ item: data.item }];
+      else if (q.type === 'craft_item' && (data.crafting || data.craft || data['crafting-name'])) raw = [{ crafting: data.crafting ?? data.craft ?? data['crafting-name'], amount: data.amount }];
+      else if (q.type === 'craft_count' && data.amount) raw = [{ amount: data.amount }];
+      else raw = [];
+    }
+    q.objectives = raw.map(item => {
+      if (q.type === 'kill_mob') return { target: String(item.mob ?? ''), amount: Number(item.amount) || 1, display: String(item.name ?? ''), itemName: '', boardLine: String(item['board-line'] ?? ''), kind: 'normal' };
+      if (q.type === 'craft_item') return { target: String(item.crafting ?? item.craft ?? item['crafting-name'] ?? ''), amount: Number(item.amount) || 1, display: String(item.name ?? ''), itemName: '', boardLine: String(item['board-line'] ?? ''), kind: 'normal' };
+      if (q.type === 'craft_count') return { target: '*', amount: Number(item.amount) || 1, display: String(item.name ?? ''), itemName: '', boardLine: String(item['board-line'] ?? ''), kind: 'normal' };
+      return importedObjective(item);
+    });
     q.conditionCommands = textList(data['condition-commands']); q.repeatable = Boolean(data.repeatable); q.cooldown = Number(data.cooldown) || 0; q.boardTitle = String(data['board-title'] ?? ''); q.boardLines = textList(data['board-line']); q.navigate = String(data.navigate ?? ''); q.navigateOnAccept = boolValue(data['navigate-on-accept']); return q;
   }
   function importedCondition(raw) {

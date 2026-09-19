@@ -1,0 +1,21 @@
+# 示例任务：使用 EpicCraftingsPlus 合成固定配方/合成名称累计次数
+quest-id: example_craft_item
+name: "&e打造工匠"
+description:
+  - "&7使用 EpicCraftingsPlus 完成指定合成。"
+type: craft_item
+
+# EpicCraftingsPlus 合成配置中的名称（不是产出物品的 Material 名称）
+crafting: EpicSword
+amount: 3
+board-line: "&7合成 &f{display} &e{current}&7/&e{total}"
+
+# 可选：也可使用 objectives 写法：
+# objectives:
+#   - crafting: EpicSword
+#     amount: 3
+#     name: "&b史诗之剑"
+
+condition-commands:
+  - "message &a你已完成 3 次史诗之剑合成！"
+repeatable: false

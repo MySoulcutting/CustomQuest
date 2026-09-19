@@ -4,7 +4,7 @@ CustomQuest 是基于 **Paper 1.21.x**、**Java 21** 与 **TabooLib 6.2.4** 的�
 提供多目标任务、NPC 分支对话、SQLite 玩家数据、SoulCore HUD/计分板任务追踪、Kether 脚本以及 SoulCore 客户端导航。
 MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
-当前项目版本为 **1.7.1**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
+当前项目版本为 **1.7.2**。源码以 Paper **1.21.1 API** 编译，并已在 Paper **1.21.11** 上完成启动与任务导航联机测试。
 
 ## 功能总览
 
@@ -44,11 +44,13 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
 ## 安装
 
-1. 将 `CustomQuest-1.7.1.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
+1. 将 `CustomQuest-1.7.2.jar` 和必需的 PlaceholderAPI 放入服务端 `plugins/` 目录。
 2. 按功能选装 MythicMobs 与 Citizens；缺少它们时，击杀任务或 NPC 对话功能不可用。
 3. 启动服务器；首次启动会下载 TabooLib、SQLite 运行库并生成默认配置、示例文件和 `data.db`。
 4. 按需编辑 `plugins/CustomQuest/` 下的配置后执行 `/cq reload`。
 5. 使用客户端任务 HUD、导航或交互式任务对话的玩家还需安装匹配 Minecraft 版本、支持对应 SoulCore 通道的 Fabric Mod；服务端不需要 SoulCore Paper 插件。未安装时任务追踪自动回退计分板，NPC 对话自动回退到可点击聊天选项。
+
+> 内置的 `quests/example_*.yml` 示例任务和 `dialogues/example_npc.yml` 示例对话只会在首次安装时生成一次，手动删除后不会因重启或 `/cq reload` 而恢复。`config.yml` 与 `messages.yml` 保持原有行为，缺失时仍会自动重新生成。
 
 ### 离线安装（服务器无法访问 repo.tabooproject.org 时）
 
@@ -67,11 +69,14 @@ MythicMobs 与 Citizens2 为可选联动，PlaceholderAPI 为必需依赖。
 
 ```
 plugins/CustomQuest/
+├── .examples-initialized # 内置示例已初始化标记（请勿手动删除）
 ├── config.yml            # 全局配置（自动保存间隔 + 任务追踪开关）
 ├── messages.yml          # 消息文本
 ├── quests/               # 任务配置（一个任务一个 yml）
 │   ├── example_kill.yml
 │   ├── example_submit.yml
+│   ├── example_craft_item.yml
+│   ├── example_craft_count.yml
 │   └── example_describe.yml
 ├── dialogues/            # NPC 对话配置（一个 NPC 一个或多个 yml）
 │   └── example_npc.yml
@@ -87,7 +92,7 @@ name: "&e清剿荒野"              # 任务名称（支持 & 颜色与 PAPI）
 description:                    # 接取时显示的描述
   - "&7去清剿荒野上的怪物吧！"
 
-type: kill_mob                  # kill_mob / submit_item
+type: kill_mob                  # kill_mob / submit_item / craft_item / craft_count / describe
 
 # ---- 全息视图（计分板）标题行（可选，留空 = 用内置默认格式）----
 # board-title: "&6&l{name}"     # 变量 {name} {id} {type}，支持 & 颜色与 PAPI
@@ -121,6 +126,17 @@ objectives:
 #     name: "&b示例剑"
 #     board-line: "&b收集 {target} &e{current}&7/&e{total}"  # 可选：计分板行格式
 
+# EpicCraftingsPlus 合成任务：
+# 1) craft_item：按 EpicCraftingsPlus 配置中的 crafting 名称匹配，每个成功合成事件计 1 次
+#    crafting: EpicSword
+#    amount: 3
+# 2) craft_count：不限制合成名称，每个成功合成事件计 1 次
+#    amount: 10
+# 也支持 objectives 写法：
+# objectives:
+#   - crafting: EpicSword
+#     amount: 3
+#     name: "&b史诗之剑"
 # 达成条件时执行一次。message 为聊天提示；也可执行控制台指令修改 NPC data。
 # 可用变量：%player% / %quest% / %quest_id% / %quest_name% 以及 PAPI。
 condition-commands:
@@ -212,7 +228,7 @@ board-line:
 | --- | --- |
 | `{name}` / `{id}` / `{type}` | 任务名称 / ID / 类型显示名 |
 | `{current}` / `{total}` | 任务总进度 / 总需求（所有目标合计） |
-| `{targetN}` | 第 N 个目标标识（击杀 = MythicMobs 怪物内部名；提交 = 材料名），N 从 1 开始 |
+| `{targetN}` | 第 N 个目标标识（击杀 = MythicMobs 怪物内部名；提交 = 材料名；`craft_item` = EpicCraftingsPlus 合成名称；`craft_count` = `*`），N 从 1 开始 |
 | `{displayN}` / `{mobN}` / `{itemN}` | 第 N 个目标显示名 |
 | `{currentN}` / `{totalN}` / `{amountN}` | 第 N 个目标进度 / 需求 / 需求（同 `{totalN}`） |
 
@@ -243,7 +259,7 @@ objectives:
 | 变量 | 说明 |
 | --- | --- |
 | `{name}` / `{id}` / `{type}` | 任务名称 / ID / 类型显示名 |
-| `{target}` | 目标标识（击杀 = MythicMobs 怪物内部名；提交 = 材料名） |
+| `{target}` | 目标标识（击杀 = MythicMobs 怪物内部名；提交 = 材料名；`craft_item` = EpicCraftingsPlus 合成名称；`craft_count` = `*`） |
 | `{display}` | 目标显示名（目标里自定义的 `name`，未填则为标识） |
 | `{mob}` | 击杀目标的显示名 |
 | `{item}` | 收集目标的显示名 |
@@ -253,7 +269,7 @@ objectives:
 | `{index}` | 目标序号（从 1 开始） |
 | `{line}` | 描述任务的单行内容（仅描述任务内容行可用） |
 
-例如针对某个目标自定义显示：`board-line: "&c击杀 {target} &e{current}&7/&e{total}"`。
+例如针对合成目标可写：`board-line: "&7合成 {display} &e{current}&7/&e{total}"`。`craft_item` 与 `craft_count` 和其他计数目标一样支持上述变量。
 
 - 玩家接取任务后，支持通道的客户端实时更新 HUD；其他客户端在右侧计分板显示任务标题与各目标进度
 - **多项目标逐条显示**：多目标任务的**每个目标**都单独显示一行进度：
@@ -463,7 +479,7 @@ then: |
 
 ```bash
 ./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.7.1.jar
+# 产物：build/libs/CustomQuest-1.7.2.jar
 ```
 
 - 需要 JDK 21

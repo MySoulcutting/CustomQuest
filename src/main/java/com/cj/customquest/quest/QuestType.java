@@ -9,6 +9,10 @@ public enum QuestType {
     KILL_MOB("kill_mob", "击杀怪物"),
     /** 提交物品（支持多种物品） */
     SUBMIT_ITEM("submit_item", "提交物品"),
+    /** EpicCraftingsPlus 合成指定名称的物品，累计指定次数 */
+    CRAFT_ITEM("craft_item", "合成指定物品"),
+    /** EpicCraftingsPlus 合成任意物品，累计指定次数 */
+    CRAFT_COUNT("craft_count", "合成次数"),
     /** 描述任务（无目标，仅展示，只能强制完成） */
     DESCRIBE("describe", "描述任务");
 

@@ -4,8 +4,10 @@
 
 ## 功能
 
-- 创建 `kill_mob`、`submit_item`、`describe` 三类任务配置
+- 创建 `kill_mob`、`submit_item`、`craft_item`、`craft_count`、`describe` 五类任务配置
+- 使用“基础信息、任务目标、达成行为、高级设置”分区表单；高级设置默认折叠，减少页面长度
 - 增删任务目标，填写显示名、物品自定义名和计分板行
+- `craft_item` 按 EpicCraftingsPlus 合成名称统计指定合成；`craft_count` 只设置不限物品的总合成次数
 - 配置重复接取、冷却、达成命令、导航位置，以及接受任务后自动开启导航
 - 创建节点式 NPC 对话文件，配置 `npc id`、`when` 条件和多个对话节点
 - 为每个对话按钮配置提交任务快捷动作、提交物品覆盖、Kether、跳转节点和关闭行为；接取任务通过 `then` 中的内置 `quest accept <任务ID>` 指令完成；按钮无需填写 `id`
@@ -18,7 +20,7 @@
 
 1. 双击打开 `editor/index.html`。
 2. 在“任务编辑器”或“NPC 对话编辑器”中填写内容。
-3. 点击“复制 YAML”或“下载配置”。
+3. 点击“复制”或“下载”。
 4. 将任务文件放入服务器的 `plugins/CustomQuest/quests/`，对话文件放入 `plugins/CustomQuest/dialogues/`。
 5. 在服务器执行 `/cq reload`。
 
@@ -31,7 +33,7 @@ navigate: "world,100,64,200"
 navigate-on-accept: true
 ```
 
-编辑器只生成配置，不会自动连接 Minecraft 服务器，也不会校验 MythicMobs 怪物名、Citizens NPC 是否存在或材料是否适用于当前版本。保存前请确认任务 ID、NPC 数字 ID、节点 ID、材料名和 Kether 动作拼写正确。NPC 变量使用 NPC ID 作为唯一变量标识，不需要填写 key。
+编辑器只生成配置，不会自动连接 Minecraft 服务器，也不会校验 MythicMobs 怪物名、EpicCraftingsPlus 合成名称、Citizens NPC 是否存在或材料是否适用于当前版本。保存前请确认任务 ID、NPC 数字 ID、节点 ID、材料名和 Kether 动作拼写正确。NPC 变量使用 NPC ID 作为唯一变量标识，不需要填写 key。
 
 ## NPC 对话格式
 
@@ -91,3 +93,9 @@ then: |
 点击“导入 YAML”，选择现有的任务文件或对话文件。编辑器会根据 `branches`、`npc id` 或 `when` 自动识别类型，并将字段载入对应表单；修改后可继续复制或下载。
 
 导入模块位于 `editor/import.js`，因此使用 `index.html` 时请保持两个文件在同一目录。
+
+## EpicCraftingsPlus 合成任务
+
+- **指定合成（`craft_item`）**：填写 EpicCraftingsPlus 配置中的合成名称和需要次数。名称不是 Bukkit 材料名。
+- **合成次数（`craft_count`）**：不限制合成物品，只填写成功合成的总次数。
+- 两种任务都支持导入已有 YAML；编辑器导出时使用 `objectives` 列表格式。

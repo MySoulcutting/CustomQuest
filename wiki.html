@@ -155,6 +155,7 @@
   <a href="#requirements">环境要求</a>
   <a href="#install">安装</a>
   <a href="#structure">目录结构</a>
+  <a href="#editor">配置编辑器</a>
   <h3>配置</h3>
   <a href="#config">全局配置 config.yml</a>
   <a href="#scoreboard">任务追踪（HUD / 计分板）</a>
@@ -177,11 +178,11 @@
   <h1>CustomQuest 任务插件 Wiki</h1>
   <p>
     CustomQuest 是一款基于 <b>Paper 1.21.x</b> 服务端、由 <b>TabooLib 6.2.4（Kether 脚本引擎）</b> 驱动的任务插件，
-    深度对接 <b>MythicMobs</b> 与 <b>Citizens2</b>：通过 Citizens NPC 对话接取任务，击杀 MythicMobs 怪物 / 提交物品完成任务，
-    通过 NPC 对话 Kether 执行扩展动作，并使用 NPC data 变量实现分支任务与分支对话。
+    深度对接 <b>MythicMobs</b>、<b>Citizens2</b> 与可选的 <b>EpicCraftingsPlus</b>：通过 Citizens NPC 对话接取任务，
+    击杀 MythicMobs 怪物、提交物品或完成 EpicCraftingsPlus 合成来推进任务，并使用 NPC 对话 Kether 与 NPC data 变量实现分支剧情。
   </p>
   <div class="notice">
-    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.7.1</b>，使用 Paper <b>1.21.1 API</b> 编译，
+    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.7.2</b>，使用 Paper <b>1.21.1 API</b> 编译，
     已在 Paper <b>1.21.11</b> 上验证启动与 SoulCore 导航；其他 1.21.x 版本仍需实服验证。
   </div>
 </section>
@@ -195,6 +196,7 @@
     <span class="badge b-green">对话内接取指令</span>
     <span class="badge b-blue">Kether 动作</span>
     <span class="badge b-orange">全息视图</span>
+    <span class="badge b-green">EpicCraftingsPlus 合成任务</span>
   </p>
   <ul>
     <li><b>Citizens2 识别 NPC id：</b>每个 NPC 对话配置文件（<code>dialogues/*.yml</code>）通过 <code>npc</code> 字段绑定一个或多个 NPC id。</li>
@@ -205,7 +207,7 @@
       两种入口共用玩家绑定、60 秒有效且一次性消费的安全会话。</li>
     <li><b>对话内接取任务指令：</b>在对话选项的 <code>then: |</code>（节点式配置）或 <code>kether</code>（传统配置）中使用 <code>quest accept &lt;任务ID&gt;</code> 接取任务；
       接取成功后可继续使用 <code>npc data set &lt;npcId&gt; &lt;value&gt;</code> 推进剧情。</li>
-    <li><b>条件达成与完成分离：</b>击杀目标首次达成或物品在背包满足目标时提示玩家，并执行 <code>condition-commands</code>；
+    <li><b>条件达成与完成分离：</b>击杀、物品或合成目标首次达成时提示玩家，并执行 <code>condition-commands</code>；
       任务不会自动结算，必须由显式指令或 NPC 提交动作完成。</li>
     <li><b>NPC 原子提交：</b>对话选项使用 <code>submit-quest</code> 实时校验进度，并可用 <code>submit-items</code> 覆盖该按钮实际扣除清单；物品任务仅在成功时一次性扣除背包物品，
       随后的选项 Kether 只会在提交成功后执行，任务完成本身不修改 NPC data。</li>
@@ -214,6 +216,8 @@
       <ul>
         <li><code>kill_mob</code> —— 击杀 MythicMobs 怪物，可配置多个怪物目标、各自计数；</li>
         <li><code>submit_item</code> —— 提交物品，可配置多种物品；</li>
+        <li><code>craft_item</code> —— 按 EpicCraftingsPlus 合成名称累计指定物品的成功合成次数；</li>
+        <li><code>craft_count</code> —— 不限合成名称，只累计 EpicCraftingsPlus 成功合成总次数；</li>
         <li><code>describe</code> —— 描述任务（无目标，仅展示），用于在全息视图（计分板）显示任务标题与内容，
           <b>只能通过强制完成动作完成</b>。</li>
       </ul>
@@ -232,6 +236,7 @@
     <tr><td>PlaceholderAPI</td><td>必需；构建与测试使用 2.12.3</td></tr>
     <tr><td>MythicMobs</td><td>可选；构建使用 5.13.0</td></tr>
     <tr><td>Citizens</td><td>可选；构建使用 2.0.36-SNAPSHOT</td></tr>
+    <tr><td>EpicCraftingsPlus</td><td>可选；使用 <code>craft_item</code> / <code>craft_count</code> 合成任务时需要</td></tr>
     <tr><td>SoulCore Fabric</td><td>可选；任务 HUD、导航与交互式 NPC 对话客户端</td></tr>
     <tr><td>TabooLib</td><td>6.2.4 维护线；首次启动需下载运行时模块</td></tr>
   </table>
@@ -240,21 +245,25 @@
 <section id="install">
   <h2>安装</h2>
   <ol>
-    <li>将构建产物 <code>build/libs/CustomQuest-1.7.1.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
-    <li>按功能选装 <b>MythicMobs</b> 与 <b>Citizens</b>；</li>
+    <li>将构建产物 <code>build/libs/CustomQuest-1.7.2.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
+    <li>按功能选装 <b>MythicMobs</b>、<b>Citizens</b> 与 <b>EpicCraftingsPlus</b>；</li>
     <li>启动服务器（首次启动会联网下载 TabooLib 模块，并生成默认配置与示例文件）；</li>
     <li>按需编辑 <code>plugins/CustomQuest/</code> 下的配置后执行 <code>/cq reload</code>。</li>
+    <li>内置的 <code>quests/example_*.yml</code> 示例任务和 <code>dialogues/example_npc.yml</code> 示例对话只在首次安装时生成一次，手动删除后不会因重启或 <code>/cq reload</code> 而恢复；<code>config.yml</code> 与 <code>messages.yml</code> 缺失时仍会按原有行为自动重新生成。</li>
   </ol>
 </section>
 
 <section id="structure">
   <h2>目录结构</h2>
 <pre><code>plugins/CustomQuest/
+├── .examples-initialized <span class="cmt"># 内置示例已初始化标记（请勿手动删除）</span>
 ├── config.yml            <span class="cmt"># 全局配置（自动保存间隔 + 全息视图开关）</span>
 ├── messages.yml          <span class="cmt"># 消息文本</span>
 ├── quests/               <span class="cmt"># 任务配置（一个任务一个 yml）</span>
 │   ├── example_kill.yml
 │   ├── example_submit.yml
+│   ├── example_craft_item.yml
+│   ├── example_craft_count.yml
 │   └── example_describe.yml
 ├── dialogues/            <span class="cmt"># NPC 对话配置（一个 NPC 一个或多个 yml）</span>
 │   └── example_npc.yml
@@ -288,6 +297,7 @@
       （如「已击杀 SkeletonKing 3/10」「已击杀 ZombieMinion 2/5」），默认<b>不显示总进度汇总行</b>；</li>
     <li><b>击杀类任务</b>显示「已击杀 怪物名 当前数量/总需击杀数量」，击杀 MythicMobs 怪物后<b>即时刷新</b>；</li>
     <li><b>提交物品类任务</b>显示「已收集 材料 当前数量/总需求」，进度随背包数量自动刷新；</li>
+    <li><b>指定合成任务</b>显示「已合成 合成名称 当前数量/总需求」；<b>合成次数任务</b>显示累计成功合成进度；</li>
     <li><b>描述任务</b>：计分板显示任务标题 + 任务内容（<code>description</code> 逐行展示），强制完成后移除；</li>
     <li>完成 / 放弃任务后对应条目即时移除，无任务时自动清空计分板；</li>
     <li>将开关改为 <code>false</code> 并执行 <code>/cq reload</code> 即可关闭，并自动清空本插件设置的计分板。</li>
@@ -323,7 +333,7 @@
     <tr><th>变量</th><th>说明</th></tr>
     <tr><td><code>{name}</code> / <code>{id}</code> / <code>{type}</code></td><td>任务名称 / ID / 类型显示名</td></tr>
     <tr><td><code>{current}</code> / <code>{total}</code></td><td>任务总进度 / 总需求（所有目标合计）</td></tr>
-    <tr><td><code>{targetN}</code></td><td>第 N 个目标标识（击杀 = 怪物内部名；提交 = 材料名），N 从 1 开始</td></tr>
+    <tr><td><code>{targetN}</code></td><td>第 N 个目标标识（击杀 = 怪物内部名；提交 = 材料名；<code>craft_item</code> = EpicCraftingsPlus 合成名称；<code>craft_count</code> = <code>*</code>），N 从 1 开始</td></tr>
     <tr><td><code>{displayN}</code> / <code>{mobN}</code> / <code>{itemN}</code></td><td>第 N 个目标显示名</td></tr>
     <tr><td><code>{currentN}</code> / <code>{totalN}</code> / <code>{amountN}</code></td><td>第 N 个目标进度 / 需求 / 需求（同 totalN）</td></tr>
   </table>
@@ -342,7 +352,7 @@
   <table>
     <tr><th>变量</th><th>说明</th></tr>
     <tr><td><code>{name}</code> / <code>{id}</code> / <code>{type}</code></td><td>任务名称 / ID / 类型显示名</td></tr>
-    <tr><td><code>{target}</code></td><td>目标标识（击杀 = MythicMobs 怪物内部名；提交 = 材料名）</td></tr>
+    <tr><td><code>{target}</code></td><td>目标标识（击杀 = MythicMobs 怪物内部名；提交 = 材料名；<code>craft_item</code> = EpicCraftingsPlus 合成名称；<code>craft_count</code> = <code>*</code>）</td></tr>
     <tr><td><code>{display}</code></td><td>目标显示名（目标里自定义的 <code>name</code>，未填则为标识）</td></tr>
     <tr><td><code>{mob}</code></td><td>击杀目标的显示名</td></tr>
     <tr><td><code>{item}</code></td><td>收集目标的显示名</td></tr>
@@ -353,7 +363,7 @@
     <tr><td><code>{line}</code></td><td>描述任务的单行内容（仅描述任务内容行可用）</td></tr>
   </table>
   <p class="muted">
-    格式支持 <code>&amp;</code>/<code>§</code> legacy 颜色、格式、重置码与 PAPI 占位符；SoulCore HUD 通过
+    <code>craft_item</code> 与 <code>craft_count</code> 和其他计数目标一样支持 <code>{current}</code>、<code>{total}</code>、<code>{amount}</code>、<code>{display}</code> 等变量。格式支持 <code>&amp;</code>/<code>§</code> legacy 颜色、格式、重置码与 PAPI 占位符；SoulCore HUD 通过
     <code>soulcore:quest_tracking_v4</code> 保留这些样式，v1–v3 兼容通道仍发送纯文本。改完后执行
     <code>/cq reload</code> 即时生效。
   </p>
@@ -381,95 +391,104 @@
 
 <section id="quest">
   <h2>任务配置 quests/</h2>
-  <p>一个任务对应一个 yml 文件，文件名任意，以 <code>quest-id</code> 为准。</p>
+  <p>一个任务对应一个 yml 文件，文件名任意，以 <code>quest-id</code> 为准。当前支持五类任务。</p>
 
   <h3>类型一：击杀 MythicMobs 怪物（kill_mob，多目标）</h3>
 <pre><code><span class="key">quest-id</span>: <span class="val">example_kill</span>          <span class="cmt"># 任务 ID（全局唯一）</span>
 <span class="key">name</span>: <span class="val">"&amp;e清剿荒野"</span>              <span class="cmt"># 任务名称（支持 &amp; 颜色与 PAPI）</span>
-<span class="key">description</span>:                     <span class="cmt"># 接取时显示的描述</span>
+<span class="key">description</span>:
   - <span class="val">"&amp;7去清剿荒野上的怪物吧！"</span>
-
-<span class="key">type</span>: <span class="val">kill_mob</span>                  <span class="cmt"># kill_mob / submit_item</span>
-
-<span class="cmt"># ---- 导航目标（可选）：SoulCore Fabric 客户端在此渲染导航光柱 ----</span>
-<span class="cmt"># navigate: "world,100,64,200"   # 世界名,x,y,z</span>
-<span class="cmt"># navigate-on-accept: true       # 接取任务成功后自动开启导航（需同时配置 navigate）</span>
-
-<span class="cmt"># ---- 任务追踪完全自定义（可选，留空 = 使用插件内置默认格式） ----</span>
-<span class="cmt"># board-title: "&amp;6&amp;l{name}"    # 变量 {name} {id} {type}</span>
-<span class="cmt"># board-line:                   # 任意多行；{target1}/{current1}/{total1} 等为第 1 个目标变量</span>
-<span class="cmt">#   - "&amp;7目标1：击杀 &amp;f{display1} &amp;e{current1}&amp;7/&amp;e{total1}"</span>
-<span class="cmt">#   - "&amp;7目标2：击杀 &amp;f{display2} &amp;e{current2}&amp;7/&amp;e{total2}"</span>
-<span class="cmt">#   - "&amp;7总进度：&amp;e{current}&amp;7/&amp;e{total}"</span>
-
-<span class="cmt"># ---- 多项目标（推荐写法） ----</span>
+<span class="key">type</span>: <span class="val">kill_mob</span>
 <span class="key">objectives</span>:
   - <span class="key">mob</span>: <span class="val">SkeletonKing</span>           <span class="cmt"># MythicMobs 怪物内部名</span>
-    <span class="key">amount</span>: <span class="val">10</span>                 <span class="cmt"># 击杀数量</span>
+    <span class="key">amount</span>: <span class="val">10</span>
     <span class="key">name</span>: <span class="val">"&amp;7骷髅王"</span>            <span class="cmt"># 自定义显示名（可选）</span>
-    <span class="cmt"># board-line: "&amp;c击杀 {target} &amp;e{current}&amp;7/&amp;e{total}"  # 该目标行（可选，留空 = 用内置默认格式）</span>
   - <span class="key">mob</span>: <span class="val">ZombieMinion</span>
     <span class="key">amount</span>: <span class="val">5</span>
-    <span class="key">name</span>: <span class="val">"&amp;2僵尸小兵"</span>
-<span class="cmt"># ---- 单目标简写（与 objectives 二选一，objectives 优先） ----</span>
-<span class="cmt"># mob: SkeletonKing</span>
-<span class="cmt"># amount: 10</span>
-
-<span class="key">condition-commands</span>:                 <span class="cmt"># 每次接取最多执行一次</span>
+<span class="cmt"># 单目标也可简写为顶层 mob + amount；objectives 优先。</span>
+<span class="key">condition-commands</span>:
   - <span class="val">"message &amp;a你已达成任务条件：&amp;f%quest_name%"</span>
-  - <span class="val">"cq data set %player% 5 kill_ready"</span>
-
-<span class="key">repeatable</span>: <span class="val">false</span>              <span class="cmt"># 是否可重复</span>
-<span class="key">cooldown</span>: <span class="val">3600</span>                 <span class="cmt"># 重复接取冷却（秒）</span></code></pre>
+<span class="key">repeatable</span>: <span class="val">false</span>
+<span class="key">cooldown</span>: <span class="val">3600</span></code></pre>
 
   <h3>类型二：提交物品（submit_item，多种物品）</h3>
 <pre><code><span class="key">quest-id</span>: <span class="val">example_submit</span>
 <span class="key">type</span>: <span class="val">submit_item</span>
-
-<span class="cmt"># 写法一：items 列表（材料:数量）</span>
-<span class="key">items</span>:
-  - <span class="val">"DIAMOND:5"</span>
-  - <span class="val">"IRON_INGOT:10"</span>
-
-<span class="cmt"># 写法二：objectives 列表（推荐，支持更多自定义）</span>
-<span class="cmt">#   name       自定义显示名（计分板/提示显示用）</span>
-<span class="cmt">#   item-name  可选：只收集显示名为该文字的物品（铁砧改名）</span>
-<span class="cmt">#   board-line 可选：该目标在计分板上的显示行（留空 = 用内置默认格式）</span>
-<span class="cmt"># objectives:</span>
-<span class="cmt">#   - item: "DIAMOND:5"</span>
-<span class="cmt">#     name: "&amp;b大钻石"</span>
-<span class="cmt">#     item-name: "&amp;b大钻石"</span>
-<span class="cmt">#     board-line: "&amp;b收集 {target} &amp;e{current}&amp;7/&amp;e{total}"</span>
-<span class="cmt">#   - item: "IRON_INGOT:10"</span>
-<span class="cmt">#     name: "&amp;f铁锭"</span>
-
+<span class="key">objectives</span>:
+  - <span class="key">item</span>: <span class="val">"DIAMOND:5"</span>
+    <span class="key">name</span>: <span class="val">"&amp;b大钻石"</span>
+    <span class="cmt"># item-name: "&amp;b大钻石"  # 可选：限制物品显示名</span>
+  - <span class="key">neige-item</span>: <span class="val">example_item</span>
+    <span class="key">amount</span>: <span class="val">2</span>
+<span class="cmt"># 兼容简写：items: ["DIAMOND:5", "IRON_INGOT:10"]</span>
 <span class="key">condition-commands</span>:
-  - <span class="val">"message &amp;a你已达成任务条件：&amp;f%quest_name%"</span></code></pre>
-  <p class="muted">
-    <code>condition-commands</code> 未配置 <code>message</code> 时发送默认达成提示；配置 <code>message</code> 后会替换默认提示。
-    <code>message &lt;文本&gt;</code> 发送聊天消息，其他内容作为控制台指令执行。
-    支持 <code>%player%</code>、<code>%quest%</code>/<code>%quest_id%</code>、<code>%quest_name%</code> 和 PAPI。
-    击杀任务在目标达成时执行；物品任务在背包满足目标时执行，NPC 提交只负责再次校验并扣除物品。
-    达成标记随玩家任务进度持久化，同一次接取即使重新登录或重启也不会重复触发。
-    旧 <code>auto-complete</code>、任务级 <code>commands</code> 和任务级 <code>kether</code> 已删除并忽略。
-  </p>
+  - <span class="val">"message &amp;a物品已经准备齐全！"</span></code></pre>
 
-  <h3>类型三：描述任务（describe，展示型）</h3>
+  <h3>类型三：指定 EpicCraftingsPlus 合成（craft_item）</h3>
   <p>
-    无任何目标，用于在<b>全息视图（计分板）</b>上展示任务标题与内容；<b>只能通过指令强制完成</b>。
+    按 EpicCraftingsPlus 配置中的<b>合成名称</b>匹配（不区分大小写），每次成功触发 <code>EpicCraftingsCraftEvent</code> 计数 1。
+    这里填写的不是 Minecraft 材料名。
   </p>
+<pre><code><span class="key">quest-id</span>: <span class="val">example_craft_item</span>
+<span class="key">name</span>: <span class="val">"&amp;e打造工匠"</span>
+<span class="key">description</span>:
+  - <span class="val">"&amp;7完成指定合成。"</span>
+<span class="key">type</span>: <span class="val">craft_item</span>
+<span class="key">crafting</span>: <span class="val">EpicSword</span>            <span class="cmt"># EpicCraftingsPlus 合成名称</span>
+<span class="key">amount</span>: <span class="val">3</span>
+<span class="key">condition-commands</span>:
+  - <span class="val">"message &amp;a你已完成 3 次史诗之剑合成！"</span></code></pre>
+  <p class="muted">也可使用 <code>objectives</code> 列表，并在目标中填写 <code>crafting</code>、<code>amount</code>、<code>name</code> 与 <code>board-line</code>。</p>
+
+  <h3>类型四：EpicCraftingsPlus 任意合成次数（craft_count）</h3>
+  <p>不限制合成名称，只累计成功的 EpicCraftingsPlus 合成次数。</p>
+<pre><code><span class="key">quest-id</span>: <span class="val">example_craft_count</span>
+<span class="key">name</span>: <span class="val">"&amp;e熟练工匠"</span>
+<span class="key">description</span>:
+  - <span class="val">"&amp;7完成任意 EpicCraftingsPlus 合成。"</span>
+<span class="key">type</span>: <span class="val">craft_count</span>
+<span class="key">amount</span>: <span class="val">10</span>
+<span class="key">condition-commands</span>:
+  - <span class="val">"message &amp;a你已完成 10 次合成！"</span></code></pre>
+  <div class="notice">
+    <b>合成任务说明：</b>未安装或未启用 EpicCraftingsPlus 时，其他任务类型仍可正常使用，但 <code>craft_item</code> 与
+    <code>craft_count</code> 不会增长。合成任务与其他任务相同，只在首次达成全部条件时执行一次 <code>condition-commands</code>，任务仍需显式提交或完成。
+  </div>
+
+  <h3>类型五：描述任务（describe，展示型）</h3>
+  <p>无任何目标，用于在任务追踪中展示标题与内容；<b>只能通过指令强制完成</b>。</p>
 <pre><code><span class="key">quest-id</span>: <span class="val">describe_story</span>
-<span class="key">name</span>: <span class="val">"&amp;6&amp;l主线剧情"</span>          <span class="cmt"># 任务标题（计分板首行）</span>
-<span class="cmt"># board-title: "&amp;d&amp;l{name}"    # 可选：标题行格式（留空 = 用内置默认格式）</span>
-<span class="key">description</span>:                     <span class="cmt"># 任务内容（计分板逐行展示）</span>
+<span class="key">name</span>: <span class="val">"&amp;6&amp;l主线剧情"</span>
+<span class="key">description</span>:
   - <span class="val">"&amp;7第一章 · 初入荒野"</span>
   - <span class="val">"&amp;7找老杰克聊聊吧"</span>
-<span class="key">type</span>: <span class="val">describe</span>                 <span class="cmt"># 描述任务（无目标）</span>
+<span class="key">type</span>: <span class="val">describe</span>
+<span class="cmt"># 显示：/cq quest accept &lt;玩家&gt; describe_story</span>
+<span class="cmt"># 完成：/cq quest complete &lt;玩家&gt; describe_story</span></code></pre>
 
-<span class="cmt"># 显示（接取）：/cq quest accept &lt;玩家&gt; describe_story</span>
-<span class="cmt">#            （或在对话选项 then 中使用 Kether quest accept）</span>
-<span class="cmt"># 完成（从计分板移除）：/cq quest complete &lt;玩家&gt; describe_story</span>
-<span class="cmt"># 注意：描述任务不能使用 quest submit；可使用 Kether quest complete 或 /cq quest complete 强制完成</span></code></pre>
+  <h3>通用可选字段</h3>
+  <ul>
+    <li><code>board-title</code> 与 <code>board-line</code>：自定义任务追踪显示；</li>
+    <li><code>navigate</code> 与 <code>navigate-on-accept</code>：配置导航位置与接取后自动导航；</li>
+    <li><code>repeatable</code> 与 <code>cooldown</code>：允许重复接取并设置冷却秒数；</li>
+    <li><code>condition-commands</code>：支持 <code>message &lt;文本&gt;</code>、控制台命令以及 PAPI 变量。</li>
+  </ul>
+</section>
+
+
+<section id="editor">
+  <h2>配置编辑器</h2>
+  <p>
+    仓库内置离线编辑器：<a href="editor/index.html"><b>打开 CustomQuest 配置编辑器</b></a>。
+    直接打开 <code>editor/index.html</code> 即可使用，不需要安装 Node.js，也不会上传配置。
+  </p>
+  <ul>
+    <li>支持 <code>kill_mob</code>、<code>submit_item</code>、<code>craft_item</code>、<code>craft_count</code>、<code>describe</code> 五类任务及 NPC 对话；</li>
+    <li>任务表单按“基础信息、任务目标、达成行为、高级设置”分区，高级设置默认折叠；</li>
+    <li>右侧实时预览 YAML，可复制、下载、导入已有配置或重置草稿；</li>
+    <li>草稿只保存在当前浏览器本地缓存中，刷新页面后可恢复；</li>
+    <li><code>craft_item</code> 填写 EpicCraftingsPlus 合成名称；<code>craft_count</code> 只需填写总次数。</li>
+  </ul>
 </section>
 
 <section id="conditions">
@@ -675,7 +694,7 @@
 <section id="build">
   <h2>构建</h2>
 <pre><code>./gradlew test build --console=plain
-# 产物：build/libs/CustomQuest-1.7.1.jar</code></pre>
+# 产物：build/libs/CustomQuest-1.7.2.jar</code></pre>
   <ul>
     <li>需要 JDK 21；</li>
     <li>仓库已内置 <code>libs/PlaceholderAPI-2.12.3.jar</code> 与 <code>libs/CitizensAPI-2.0.36-SNAPSHOT.jar</code> 作为离线编译依赖，均不会打入插件 JAR；</li>
@@ -698,7 +717,7 @@
   <p><b>解决办法：</b>在可联网构建机执行 <code>./gradlew collectLibs --console=plain</code>，然后：</p>
   <ol>
     <li>保持 Maven 目录结构，将 <code>offline-libs/</code> 的内容复制到服务器根目录 <code>libraries/</code>；</li>
-    <li>单独安装 CustomQuest、PlaceholderAPI，以及按需使用的 MythicMobs/Citizens；</li>
+    <li>单独安装 CustomQuest、PlaceholderAPI，以及按需使用的 MythicMobs、Citizens、EpicCraftingsPlus；</li>
     <li>删除旧版插件 jar 后重启服务器。</li>
   </ol>
   <p class="muted">插件检测到依赖已存在时会跳过下载直接加载，服务器全程无需联网。</p>
@@ -706,15 +725,17 @@
   <p>请使用与 Paper 1.21.x 匹配的 Citizens 版本（2.0.36 以上新构建），本插件对 Citizens 采用软依赖，Citizens 异常不影响本插件其他功能。</p>
   <h3>3. 任务能接取但击杀不计数？</h3>
   <p>请确认任务配置中的 <code>mob</code> 与 MythicMobs 怪物<b>内部名</b>完全一致（大小写不敏感），且击杀者是玩家本人。</p>
-  <h3>4. 点击对话选项没反应？</h3>
+  <h3>4. EpicCraftingsPlus 合成任务不计数？</h3>
+  <p>确认 EpicCraftingsPlus 已正常启用；<code>craft_item</code> 的 <code>crafting</code> 必须填写该插件配置中的合成名称，而不是 Bukkit 材料名。修改后执行 <code>/cq reload</code>。</p>
+  <h3>5. 点击对话选项没反应？</h3>
   <p>请确认玩家未被聊天拦截类插件屏蔽 <code>run_command</code> 点击事件，且 <code>/cq</code> 指令未被其他插件占用。</p>
-  <h3>5. 计分板不显示？</h3>
+  <h3>6. 计分板不显示？</h3>
   <p>检查 <code>scoreboard.enabled</code> 是否为 <code>true</code> 并执行 <code>/cq reload</code>。支持 SoulCore 通道时任务会显示在 HUD；
   无客户端通道才使用原生计分板回退。检测到其他插件已占用侧边栏时 CustomQuest 会主动让出，不会覆盖或反复抢占。</p>
 </section>
 
 <footer>
-  CustomQuest 1.7.1 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
+  CustomQuest 1.7.2 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
 </footer>
 
 </main>

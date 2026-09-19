@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.cj.customquest"
-version = "1.7.1"
+version = "1.7.2"
 
 // TabooLib 版本（6.2.4 维护线，修复了 6.2.2 的类加载/Gson 序列化冲突）
 val TABOOLIB_VERSION = "6.2.4-c90a237"
@@ -60,6 +60,7 @@ taboolib {
             name("MythicMobs").optional = true
             name("Citizens").optional = true
             name("NeigeItems").optional = true
+            name("EpicCraftingsPlus").optional = true
         }
     }
 }

@@ -2,15 +2,18 @@ package com.cj.customquest;
 
 import com.cj.customquest.board.QuestBoard;
 import com.cj.customquest.command.MainCommand;
+import com.cj.customquest.config.DefaultExamples;
 import com.cj.customquest.config.Settings;
 import com.cj.customquest.dialogue.DialogueManager;
 import com.cj.customquest.dialogue.DialoguePayload;
 import com.cj.customquest.expansion.QuestExpansion;
 import com.cj.customquest.hook.CitizensHook;
+import com.cj.customquest.hook.EpicCraftingsPlusHook;
 import com.cj.customquest.hook.MythicMobsHook;
 import com.cj.customquest.hook.NeigeItemsHook;
 import com.cj.customquest.hook.PapiHook;
 import com.cj.customquest.kether.KetherActions;
+import com.cj.customquest.listener.EpicCraftingsPlusListener;
 import com.cj.customquest.listener.InventoryListener;
 import com.cj.customquest.listener.MythicMobListener;
 import com.cj.customquest.listener.NpcListener;
@@ -80,6 +83,7 @@ public class CustomQuestPlugin extends Plugin {
         MythicMobsHook.init();
         NeigeItemsHook.init();
         CitizensHook.init();
+        EpicCraftingsPlusHook.init();
 
         // 导航系统（需在任务加载前创建，以便 reload 时注册导航目标）
         NavigationManager.create();
@@ -107,6 +111,9 @@ public class CustomQuestPlugin extends Plugin {
         }
         if (CitizensHook.isEnabled()) {
             registerListener(new NpcListener());
+        }
+        if (EpicCraftingsPlusHook.isEnabled()) {
+            EpicCraftingsPlusListener.register(BukkitPlugin.getInstance());
         }
 
         // PAPI 扩展
@@ -240,15 +247,29 @@ public class CustomQuestPlugin extends Plugin {
         }
     }
 
-    /** 首次运行：释放示例配置（config.yml / quests / dialogues） */
+    /** config.yml 保持原有恢复行为；内置示例任务和对话只在全新安装时释放一次。 */
     private void prepareDefaultFiles() {
         File dataFolder = BukkitPlugin.getInstance().getDataFolder();
+        boolean installExamples = DefaultExamples.shouldInstall(dataFolder);
         dataFolder.mkdirs();
+
+        // 全局配置保持原有行为：文件缺失时重新释放。
         copyResource(dataFolder, "config.yml");
-        copyResource(dataFolder, "quests/example_kill.yml");
-        copyResource(dataFolder, "quests/example_submit.yml");
-        copyResource(dataFolder, "quests/example_describe.yml");
-        copyResource(dataFolder, "dialogues/example_npc.yml");
+
+        if (installExamples) {
+            copyResource(dataFolder, "quests/example_kill.yml");
+            copyResource(dataFolder, "quests/example_submit.yml");
+            copyResource(dataFolder, "quests/example_craft_item.yml");
+            copyResource(dataFolder, "quests/example_craft_count.yml");
+            copyResource(dataFolder, "quests/example_describe.yml");
+            copyResource(dataFolder, "dialogues/example_npc.yml");
+        }
+
+        try {
+            DefaultExamples.markInitialized(dataFolder);
+        } catch (Exception e) {
+            Bukkit.getLogger().warning("[CustomQuest] 写入示例文件初始化标记失败: " + e.getMessage());
+        }
     }
 
     private void copyResource(File dataFolder, String path) {
