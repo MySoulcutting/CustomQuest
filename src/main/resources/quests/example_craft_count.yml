@@ -1,0 +1,12 @@
+# 示例任务：使用 EpicCraftingsPlus 合成任意物品累计次数
+quest-id: example_craft_count
+name: "&e熟练工匠"
+description:
+  - "&7在 EpicCraftingsPlus 中完成任意合成。"
+type: craft_count
+amount: 10
+board-line: "&7合成次数：&e{current}&7/&e{total}"
+
+condition-commands:
+  - "message &a你已完成 10 次合成！"
+repeatable: false

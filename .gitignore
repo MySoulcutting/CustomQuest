@@ -1,0 +1,66 @@
+# Gradle and generated outputs
+.gradle/
+.gradle-home/
+.kotlin/
+build/
+out/
+offline-libs/
+.tools/
+.research/
+.testserver/
+build-daemon-log.txt
+
+# IDE metadata
+.idea/
+.vscode/
+.fleet/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# Local Paper servers and runtime data
+run/
+server/
+plugins/
+libraries/
+logs/
+crash-reports/
+cache/
+world/
+world_nether/
+world_the_end/
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+*.log
+*.log.*
+hs_err_pid*
+replay_pid*
+*.hprof
+*.jfr
+*.pid
+*.tmp
+
+# Local secrets
+.env
+.env.*
+!.env.example
+local.properties
+gradle-local.properties
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# Operating systems
+.DS_Store
+Thumbs.db
+Desktop.ini

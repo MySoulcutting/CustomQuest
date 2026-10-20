@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CustomQuest 任务插件 Wiki</title>
+<style>
+  :root {
+    --bg: #0f1216;
+    --panel: #171b21;
+    --panel-2: #1d232c;
+    --border: #2a323d;
+    --text: #d8dee6;
+    --muted: #8b98a5;
+    --accent: #4cc2ff;
+    --accent-2: #ffb454;
+    --green: #7bd88f;
+    --red: #ff7b72;
+    --code-bg: #10141a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---------- 顶部 ---------- */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    background: linear-gradient(90deg, #1a2130, #10141a);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  header .logo {
+    font-size: 19px; font-weight: 700; color: #fff; letter-spacing: .5px;
+  }
+  header .logo span { color: var(--accent); }
+  header .tag {
+    font-size: 12px; color: var(--muted); border: 1px solid var(--border);
+    padding: 2px 10px; border-radius: 999px;
+  }
+  header .meta { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  /* ---------- 布局 ---------- */
+  .layout { display: flex; margin-top: 58px; }
+  nav {
+    position: fixed; top: 58px; bottom: 0; width: 230px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 18px 10px;
+    overflow-y: auto;
+  }
+  nav h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--muted); margin: 14px 10px 6px;
+  }
+  nav a {
+    display: block; padding: 6px 12px; border-radius: 6px;
+    color: var(--text); font-size: 13.5px;
+  }
+  nav a:hover { background: var(--panel-2); text-decoration: none; color: var(--accent); }
+  nav a.active { background: var(--panel-2); color: var(--accent); border-left: 3px solid var(--accent); }
+
+  main {
+    margin-left: 230px; padding: 30px 44px 80px; max-width: 980px; width: 100%;
+  }
+  section { margin-bottom: 56px; }
+  h1 {
+    font-size: 26px; color: #fff; margin-bottom: 6px;
+    border-bottom: 2px solid var(--accent); padding-bottom: 10px; display: inline-block;
+  }
+  h2 {
+    font-size: 21px; color: #fff; margin: 30px 0 12px;
+    border-left: 4px solid var(--accent); padding-left: 12px;
+  }
+  h3 { font-size: 17px; color: var(--accent-2); margin: 22px 0 8px; }
+  p { margin: 8px 0; color: var(--text); }
+  ul, ol { margin: 8px 0 8px 24px; }
+  li { margin: 4px 0; }
+  .muted { color: var(--muted); }
+  .notice {
+    background: #20293a; border: 1px solid #33445e; border-left: 4px solid var(--accent);
+    padding: 10px 16px; border-radius: 6px; margin: 14px 0; font-size: 13.5px;
+  }
+  .warn {
+    background: #33261c; border: 1px solid #57422c; border-left: 4px solid var(--accent-2);
+    padding: 10px 16px; border-radius: 6px; margin: 14px 0; font-size: 13.5px;
+  }
+
+  /* ---------- 代码块 ---------- */
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 18px; overflow-x: auto; margin: 12px 0;
+    font-family: "Cascadia Code", Consolas, "JetBrains Mono", monospace;
+    font-size: 13px; line-height: 1.6;
+  }
+  code {
+    background: var(--code-bg); border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 4px; font-size: 13px;
+    font-family: "Cascadia Code", Consolas, monospace; color: #ffd479;
+  }
+  pre code { border: none; padding: 0; color: #c9d4e0; }
+  .cmt { color: #6b7a8c; }
+  .key { color: #7bd88f; }
+  .val { color: #ffd479; }
+
+  /* ---------- 表格 ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  th { background: var(--panel-2); color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #141920; }
+  td code { font-size: 12.5px; }
+
+  /* ---------- 徽章 ---------- */
+  .badge {
+    display: inline-block; font-size: 11.5px; padding: 1px 9px; border-radius: 999px;
+    margin: 2px 4px 2px 0; border: 1px solid var(--border);
+  }
+  .b-green { color: var(--green); border-color: #2c4a38; background: #16281e; }
+  .b-blue { color: var(--accent); border-color: #27405a; background: #12202e; }
+  .b-orange { color: var(--accent-2); border-color: #57422c; background: #2b2014; }
+
+  footer {
+    margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 12.5px; text-align: center;
+  }
+
+  @media (max-width: 900px) {
+    nav { display: none; }
+    main { margin-left: 0; padding: 20px 16px 60px; }
+    header .meta { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Custom<span>Quest</span></div>
+  <div class="tag">MythicMobs × Citizens2 × Kether</div>
+  <div class="meta">Paper 1.21.x · Java 21 · 任务 / 对话 一体化插件</div>
+</header>
+
+<div class="layout">
+<nav>
+  <h3>开始</h3>
+  <a href="#intro">插件简介</a>
+  <a href="#features">功能特性</a>
+  <a href="#requirements">环境要求</a>
+  <a href="#install">安装</a>
+  <a href="#structure">目录结构</a>
+  <a href="#editor">配置编辑器</a>
+  <h3>配置</h3>
+  <a href="#config">全局配置 config.yml</a>
+  <a href="#scoreboard">任务追踪（计分板）</a>
+  <a href="#quest">任务配置 quests/</a>
+  <a href="#conditions">分支门控条件写法</a>
+  <a href="#dialogue">NPC 对话 dialogues/</a>
+  <h3>脚本与指令</h3>
+  <a href="#kether">自定义 Kether 动作</a>
+  <a href="#commands">指令列表</a>
+  <a href="#papi">PAPI 变量</a>
+  <h3>其他</h3>
+  <a href="#build">构建</a>
+  <a href="#faq">常见问题</a>
+</nav>
+
+<main>
+
+<section id="intro">
+  <h1>CustomQuest 任务插件 Wiki</h1>
+  <p>
+    CustomQuest 是一款基于 <b>Paper 1.21.x</b> 服务端、由 <b>TabooLib 6.2.4（Kether 脚本引擎）</b> 驱动的任务插件，
+    深度对接 <b>MythicMobs</b>、<b>Citizens2</b> 与可选的 <b>EpicCraftingsPlus</b>：通过 Citizens NPC 对话接取任务，
+    击杀 MythicMobs 怪物、提交物品或完成 EpicCraftingsPlus 合成来推进任务，并使用 NPC 对话 Kether 与 NPC data 变量实现分支剧情。
+  </p>
+  <div class="notice">
+    <b>版本说明：</b>当前 CustomQuest 版本为 <b>1.7.2</b>，使用 Paper <b>1.21.1 API</b> 编译，
+    已在 Paper <b>1.21.11</b> 上验证启动；其他 1.21.x 版本仍需实服验证。
+  </div>
+</section>
+
+<section id="features">
+  <h2>功能特性</h2>
+  <p>
+    <span class="badge b-green">Citizens2 对接</span>
+    <span class="badge b-blue">NPC data 分支对话</span>
+    <span class="badge b-orange">多项目标</span>
+    <span class="badge b-green">对话内接取指令</span>
+    <span class="badge b-blue">Kether 动作</span>
+    <span class="badge b-orange">全息视图</span>
+    <span class="badge b-green">EpicCraftingsPlus 合成任务</span>
+  </p>
+  <ul>
+    <li><b>Citizens2 识别 NPC id：</b>每个 NPC 对话配置文件（<code>dialogues/*.yml</code>）通过 <code>npc</code> 字段绑定一个或多个 NPC id。</li>
+    <li><b>NPC data 分支任务 / 分支对话（玩家级数据）：</b>对话分支支持 <code>data=</code> / <code>data-value=</code>（或列表写法）与 PAPI 变量条件，
+      当 NPC 的 data 值不同时显示不同对话，用于接取任务、推进剧情。
+      <b>data 变量按玩家独立存储</b>：每个玩家在同一 NPC 上有自己的 data 值，不同玩家可处于不同对话分支，互不影响。</li>
+    <li><b>NPC 任务对话：</b>由服务器打开原版箱子承载：第 1 格是 NPC 标题与正文、第 3 格起是选项，点击即提交，不依赖客户端模组。
+      两种入口共用玩家绑定、60 秒有效且一次性消费的安全会话。</li>
+    <li><b>对话内接取任务指令：</b>在对话选项的 <code>then: |</code>（节点式配置）或 <code>kether</code>（传统配置）中使用 <code>quest accept &lt;任务ID&gt;</code> 接取任务；
+      接取成功后可继续使用 <code>npc data set &lt;npcId&gt; &lt;value&gt;</code> 推进剧情。</li>
+    <li><b>条件达成与完成分离：</b>击杀、物品或合成目标首次达成时提示玩家，并执行 <code>condition-commands</code>；
+      任务不会自动结算，必须由显式指令或 NPC 提交动作完成。</li>
+    <li><b>NPC 原子提交：</b>对话选项使用 <code>submit-quest</code> 实时校验进度，并可用 <code>submit-items</code> 覆盖该按钮实际扣除清单；物品任务仅在成功时一次性扣除背包物品，
+      随后的选项 Kether 只会在提交成功后执行，任务完成本身不修改 NPC data。</li>
+    <li><b>接取任务不校验前置条件：</b>任务门控（谁能看到接取选项）完全由对话分支的 data / PAPI 条件控制。</li>
+    <li><b>任务类型 × 多项目标：</b>
+      <ul>
+        <li><code>kill_mob</code> —— 击杀 MythicMobs 怪物，可配置多个怪物目标、各自计数；</li>
+        <li><code>submit_item</code> —— 提交物品，可配置多种物品；</li>
+        <li><code>craft_item</code> —— 按 EpicCraftingsPlus 合成名称累计指定物品的成功合成次数；</li>
+        <li><code>craft_count</code> —— 不限合成名称，只累计 EpicCraftingsPlus 成功合成总次数；</li>
+        <li><code>describe</code> —— 描述任务（无目标，仅展示），用于在全息视图（计分板）显示任务标题与内容，
+          <b>只能通过强制完成动作完成</b>。</li>
+      </ul>
+    </li>
+    <li><b>任务追踪：</b>config.yml 一键开关；接取任务后实时写入右侧计分板。</li>
+    <li><b>Kether 动作：</b>NPC 对话选项可执行 Kether 脚本，并提供 <code>quest accept</code>、<code>npc data set</code> 等自定义动作。</li>
+  </ul>
+</section>
+
+<section id="requirements">
+  <h2>环境要求</h2>
+  <table>
+    <tr><th>组件</th><th>要求</th></tr>
+    <tr><td>服务端</td><td>Paper 1.21.1 API 编译；已验证 Paper 1.21.11</td></tr>
+    <tr><td>Java</td><td>21</td></tr>
+    <tr><td>PlaceholderAPI</td><td>必需；构建与测试使用 2.12.3</td></tr>
+    <tr><td>MythicMobs</td><td>可选；构建使用 5.13.0</td></tr>
+    <tr><td>Citizens</td><td>可选；构建使用 2.0.36-SNAPSHOT</td></tr>
+    <tr><td>EpicCraftingsPlus</td><td>可选；使用 <code>craft_item</code> / <code>craft_count</code> 合成任务时需要</td></tr>
+    <tr><td>TabooLib</td><td>6.2.4 维护线；首次启动需下载运行时模块</td></tr>
+  </table>
+</section>
+
+<section id="install">
+  <h2>安装</h2>
+  <ol>
+    <li>将构建产物 <code>build/libs/CustomQuest-1.7.2.jar</code> 与必需的 <b>PlaceholderAPI</b> 放入 <code>plugins/</code> 目录；</li>
+    <li>按功能选装 <b>MythicMobs</b>、<b>Citizens</b> 与 <b>EpicCraftingsPlus</b>；</li>
+    <li>启动服务器（首次启动会联网下载 TabooLib 模块，并生成默认配置与示例文件）；</li>
+    <li>按需编辑 <code>plugins/CustomQuest/</code> 下的配置后执行 <code>/cq reload</code>。</li>
+    <li>内置的 <code>quests/example_*.yml</code> 示例任务和 <code>dialogues/example_npc.yml</code> 示例对话只在首次安装时生成一次，手动删除后不会因重启或 <code>/cq reload</code> 而恢复；<code>config.yml</code> 与 <code>messages.yml</code> 缺失时仍会按原有行为自动重新生成。</li>
+  </ol>
+</section>
+
+<section id="structure">
+  <h2>目录结构</h2>
+<pre><code>plugins/CustomQuest/
+├── .examples-initialized <span class="cmt"># 内置示例已初始化标记（请勿手动删除）</span>
+├── config.yml            <span class="cmt"># 全局配置（自动保存间隔 + 全息视图开关）</span>
+├── messages.yml          <span class="cmt"># 消息文本</span>
+├── quests/               <span class="cmt"># 任务配置（一个任务一个 yml）</span>
+│   ├── example_kill.yml
+│   ├── example_submit.yml
+│   ├── example_craft_item.yml
+│   ├── example_craft_count.yml
+│   └── example_describe.yml
+├── dialogues/            <span class="cmt"># NPC 对话配置（一个 NPC 一个或多个 yml）</span>
+│   └── example_npc.yml
+├── data.db               <span class="cmt"># SQLite 玩家任务数据（自动生成，勿手动修改）</span>
+└── data/                 <span class="cmt"># 旧版 YAML 备份（迁移后不再读写）</span></code></pre>
+</section>
+
+<section id="config">
+  <h2>全局配置 config.yml</h2>
+<pre><code><span class="key">autosave-seconds</span>: <span class="val">300</span>        <span class="cmt"># 玩家数据自动保存间隔（秒）</span>
+
+<span class="key">scoreboard</span>:                  <span class="cmt"># 任务追踪计分板总开关</span>
+  <span class="key">enabled</span>: <span class="val">true</span>            <span class="cmt"># 任务追踪总开关</span>
+  <span class="key">title</span>: <span class="val">"&amp;6&amp;l任务追踪"</span>  <span class="cmt"># 仅影响回退计分板</span>
+  <span class="key">gap-lines</span>: <span class="val">1</span>           <span class="cmt"># 仅影响回退计分板任务间距</span></code></pre>
+  <p class="muted">
+    开启后任务会显示在玩家右侧计分板；检测到其他插件侧边栏时主动让出。
+    每项任务的显示内容请在任务文件（<code>quests/*.yml</code>）里用
+    <code>board-title</code> / <code>board-line</code> 完全自定义。
+  </p>
+</section>
+
+<section id="scoreboard">
+  <h2>任务追踪（右侧计分板）</h2>
+  <p>
+    在 <code>config.yml</code> 中开启 <code>scoreboard.enabled</code> 后：
+  </p>
+  <ul>
+    <li>玩家接取任务后实时更新右侧计分板；</li>
+    <li><b>多项目标逐条显示</b>：多目标任务的<b>每个目标</b>都会单独显示一行进度
+      （如「已击杀 SkeletonKing 3/10」「已击杀 ZombieMinion 2/5」），默认<b>不显示总进度汇总行</b>；</li>
+    <li><b>击杀类任务</b>显示「已击杀 怪物名 当前数量/总需击杀数量」，击杀 MythicMobs 怪物后<b>即时刷新</b>；</li>
+    <li><b>提交物品类任务</b>显示「已收集 材料 当前数量/总需求」，进度随背包数量自动刷新；</li>
+    <li><b>指定合成任务</b>显示「已合成 合成名称 当前数量/总需求」；<b>合成次数任务</b>显示累计成功合成进度；</li>
+    <li><b>描述任务</b>：计分板显示任务标题 + 任务内容（<code>description</code> 逐行展示），强制完成后移除；</li>
+    <li>完成 / 放弃任务后对应条目即时移除，无任务时自动清空计分板；</li>
+    <li>将开关改为 <code>false</code> 并执行 <code>/cq reload</code> 即可关闭，并自动清空本插件设置的计分板。</li>
+  </ul>
+  <h3>多目标显示效果示例</h3>
+  <pre><code>&amp;6&amp;l任务追踪
+&amp;e清剿荒野
+ 已击杀 SkeletonKing 3/10
+ 已击杀 ZombieMinion 2/5</code></pre>
+  <div class="notice">
+    计分板总行数受 Minecraft 侧边栏 15 行限制；每个任务按「完整块」显示（标题 + 全部目标进度行），
+    放不下的任务整体跳过并以「…还有 N 个任务」提示。
+  </div>
+
+  <h3>显示内容自定义（格式变量）</h3>
+  <p>
+    计分板的显示内容不再在 <code>config.yml</code> 里配置，而是在<b>任务文件</b>里自定义：
+    <code>board-title</code>（标题行）+ <code>board-line</code>（任意多行列表）。
+  </p>
+
+  <h4>完全自定义（推荐）</h4>
+  <p>
+    在任务文件里写 <code>board-title</code>（标题行）+ <code>board-line</code>（<b>任意多行</b>列表），
+    即可完全控制该任务在计分板上的每一行，不再自动生成目标行。
+  </p>
+<pre><code><span class="cmt"># quests/example_kill.yml —— 完全自定义</span>
+<span class="key">board-title</span>: <span class="val">"&amp;6&amp;l{name}"</span>
+<span class="key">board-line</span>:
+  - <span class="val">"&amp;7目标1：击杀 &amp;f{display1} &amp;e{current1}&amp;7/&amp;e{total1}"</span>
+  - <span class="val">"&amp;7目标2：击杀 &amp;f{display2} &amp;e{current2}&amp;7/&amp;e{total2}"</span>
+  - <span class="val">"&amp;7总进度：&amp;e{current}&amp;7/&amp;e{total}"</span></code></pre>
+  <table>
+    <tr><th>变量</th><th>说明</th></tr>
+    <tr><td><code>{name}</code> / <code>{id}</code> / <code>{type}</code></td><td>任务名称 / ID / 类型显示名</td></tr>
+    <tr><td><code>{current}</code> / <code>{total}</code></td><td>任务总进度 / 总需求（所有目标合计）</td></tr>
+    <tr><td><code>{targetN}</code></td><td>第 N 个目标标识（击杀 = 怪物内部名；提交 = 材料名；<code>craft_item</code> = EpicCraftingsPlus 合成名称；<code>craft_count</code> = <code>*</code>），N 从 1 开始</td></tr>
+    <tr><td><code>{displayN}</code> / <code>{mobN}</code> / <code>{itemN}</code></td><td>第 N 个目标显示名</td></tr>
+    <tr><td><code>{currentN}</code> / <code>{totalN}</code> / <code>{amountN}</code></td><td>第 N 个目标进度 / 需求 / 需求（同 totalN）</td></tr>
+  </table>
+
+  <h4>不写 board-line 时的自动模式</h4>
+  <p>
+    若任务文件里没有 <code>board-line</code> 列表，则按「标题 + 每个目标一行」自动生成；
+    此时可用 <code>board-title</code> 覆盖标题行、用目标里的 <code>board-line</code> 覆盖单个目标行。
+  </p>
+<pre><code><span class="cmt"># quests/example_kill.yml —— 自动模式下的单行覆盖</span>
+<span class="key">board-title</span>: <span class="val">"&amp;6&amp;l{name}"</span>          <span class="cmt"># 可选：本任务标题行</span>
+<span class="key">objectives</span>:
+  - <span class="key">mob</span>: <span class="val">SkeletonKing</span>
+    <span class="key">amount</span>: <span class="val">10</span>
+    <span class="key">board-line</span>: <span class="val">"&amp;c击杀 {target} &amp;e{current}&amp;7/&amp;e{total}"</span>  <span class="cmt"># 可选：本目标行</span></code></pre>
+  <table>
+    <tr><th>变量</th><th>说明</th></tr>
+    <tr><td><code>{name}</code> / <code>{id}</code> / <code>{type}</code></td><td>任务名称 / ID / 类型显示名</td></tr>
+    <tr><td><code>{target}</code></td><td>目标标识（击杀 = MythicMobs 怪物内部名；提交 = 材料名；<code>craft_item</code> = EpicCraftingsPlus 合成名称；<code>craft_count</code> = <code>*</code>）</td></tr>
+    <tr><td><code>{display}</code></td><td>目标显示名（目标里自定义的 <code>name</code>，未填则为标识）</td></tr>
+    <tr><td><code>{mob}</code></td><td>击杀目标的显示名</td></tr>
+    <tr><td><code>{item}</code></td><td>收集目标的显示名</td></tr>
+    <tr><td><code>{current}</code></td><td>当前进度（该目标的当前数量）</td></tr>
+    <tr><td><code>{total}</code></td><td>总需求（该目标的需求数量）</td></tr>
+    <tr><td><code>{amount}</code></td><td>目标需求数量（同 <code>{total}</code>）</td></tr>
+    <tr><td><code>{index}</code></td><td>目标序号（从 1 开始）</td></tr>
+    <tr><td><code>{line}</code></td><td>描述任务的单行内容（仅描述任务内容行可用）</td></tr>
+  </table>
+  <p class="muted">
+    <code>craft_item</code> 与 <code>craft_count</code> 和其他计数目标一样支持 <code>{current}</code>、<code>{total}</code>、<code>{amount}</code>、<code>{display}</code> 等变量。格式支持 <code>&amp;</code>/<code>§</code> legacy 颜色、格式、重置码与 PAPI 占位符。改完后执行
+    <code>/cq reload</code> 即时生效。
+  </p>
+</section>
+
+<section id="quest">
+  <h2>任务配置 quests/</h2>
+  <p>一个任务对应一个 yml 文件，文件名任意，以 <code>quest-id</code> 为准。当前支持五类任务。</p>
+
+  <h3>类型一：击杀 MythicMobs 怪物（kill_mob，多目标）</h3>
+<pre><code><span class="key">quest-id</span>: <span class="val">example_kill</span>          <span class="cmt"># 任务 ID（全局唯一）</span>
+<span class="key">name</span>: <span class="val">"&amp;e清剿荒野"</span>              <span class="cmt"># 任务名称（支持 &amp; 颜色与 PAPI）</span>
+<span class="key">description</span>:
+  - <span class="val">"&amp;7去清剿荒野上的怪物吧！"</span>
+<span class="key">type</span>: <span class="val">kill_mob</span>
+<span class="key">objectives</span>:
+  - <span class="key">mob</span>: <span class="val">SkeletonKing</span>           <span class="cmt"># MythicMobs 怪物内部名</span>
+    <span class="key">amount</span>: <span class="val">10</span>
+    <span class="key">name</span>: <span class="val">"&amp;7骷髅王"</span>            <span class="cmt"># 自定义显示名（可选）</span>
+  - <span class="key">mob</span>: <span class="val">ZombieMinion</span>
+    <span class="key">amount</span>: <span class="val">5</span>
+<span class="cmt"># 单目标也可简写为顶层 mob + amount；objectives 优先。</span>
+<span class="key">condition-commands</span>:
+  - <span class="val">"message &amp;a你已达成任务条件：&amp;f%quest_name%"</span>
+<span class="key">repeatable</span>: <span class="val">false</span>
+<span class="key">cooldown</span>: <span class="val">3600</span></code></pre>
+
+  <h3>类型二：提交物品（submit_item，多种物品）</h3>
+<pre><code><span class="key">quest-id</span>: <span class="val">example_submit</span>
+<span class="key">type</span>: <span class="val">submit_item</span>
+<span class="key">objectives</span>:
+  - <span class="key">item</span>: <span class="val">"DIAMOND:5"</span>
+    <span class="key">name</span>: <span class="val">"&amp;b大钻石"</span>
+    <span class="cmt"># item-name: "&amp;b大钻石"  # 可选：限制物品显示名</span>
+  - <span class="key">neige-item</span>: <span class="val">example_item</span>
+    <span class="key">amount</span>: <span class="val">2</span>
+<span class="cmt"># 兼容简写：items: ["DIAMOND:5", "IRON_INGOT:10"]</span>
+<span class="key">condition-commands</span>:
+  - <span class="val">"message &amp;a物品已经准备齐全！"</span></code></pre>
+
+  <h3>类型三：指定 EpicCraftingsPlus 合成（craft_item）</h3>
+  <p>
+    按 EpicCraftingsPlus 配置中的<b>合成名称</b>匹配（不区分大小写），每次成功触发 <code>EpicCraftingsCraftEvent</code> 计数 1。
+    这里填写的不是 Minecraft 材料名。
+  </p>
+<pre><code><span class="key">quest-id</span>: <span class="val">example_craft_item</span>
+<span class="key">name</span>: <span class="val">"&amp;e打造工匠"</span>
+<span class="key">description</span>:
+  - <span class="val">"&amp;7完成指定合成。"</span>
+<span class="key">type</span>: <span class="val">craft_item</span>
+<span class="key">crafting</span>: <span class="val">EpicSword</span>            <span class="cmt"># EpicCraftingsPlus 合成名称</span>
+<span class="key">amount</span>: <span class="val">3</span>
+<span class="key">condition-commands</span>:
+  - <span class="val">"message &amp;a你已完成 3 次史诗之剑合成！"</span></code></pre>
+  <p class="muted">也可使用 <code>objectives</code> 列表，并在目标中填写 <code>crafting</code>、<code>amount</code>、<code>name</code> 与 <code>board-line</code>。</p>
+
+  <h3>类型四：EpicCraftingsPlus 任意合成次数（craft_count）</h3>
+  <p>不限制合成名称，只累计成功的 EpicCraftingsPlus 合成次数。</p>
+<pre><code><span class="key">quest-id</span>: <span class="val">example_craft_count</span>
+<span class="key">name</span>: <span class="val">"&amp;e熟练工匠"</span>
+<span class="key">description</span>:
+  - <span class="val">"&amp;7完成任意 EpicCraftingsPlus 合成。"</span>
+<span class="key">type</span>: <span class="val">craft_count</span>
+<span class="key">amount</span>: <span class="val">10</span>
+<span class="key">condition-commands</span>:
+  - <span class="val">"message &amp;a你已完成 10 次合成！"</span></code></pre>
+  <div class="notice">
+    <b>合成任务说明：</b>未安装或未启用 EpicCraftingsPlus 时，其他任务类型仍可正常使用，但 <code>craft_item</code> 与
+    <code>craft_count</code> 不会增长。合成任务与其他任务相同，只在首次达成全部条件时执行一次 <code>condition-commands</code>，任务仍需显式提交或完成。
+  </div>
+
+  <h3>类型五：描述任务（describe，展示型）</h3>
+  <p>无任何目标，用于在任务追踪中展示标题与内容；<b>只能通过指令强制完成</b>。</p>
+<pre><code><span class="key">quest-id</span>: <span class="val">describe_story</span>
+<span class="key">name</span>: <span class="val">"&amp;6&amp;l主线剧情"</span>
+<span class="key">description</span>:
+  - <span class="val">"&amp;7第一章 · 初入荒野"</span>
+  - <span class="val">"&amp;7找老杰克聊聊吧"</span>
+<span class="key">type</span>: <span class="val">describe</span>
+<span class="cmt"># 显示：/cq quest accept &lt;玩家&gt; describe_story</span>
+<span class="cmt"># 完成：/cq quest complete &lt;玩家&gt; describe_story</span></code></pre>
+
+  <h3>通用可选字段</h3>
+  <ul>
+    <li><code>board-title</code> 与 <code>board-line</code>：自定义任务追踪显示；</li>
+    <li><code>repeatable</code> 与 <code>cooldown</code>：允许重复接取并设置冷却秒数；</li>
+    <li><code>condition-commands</code>：支持 <code>message &lt;文本&gt;</code>、控制台命令以及 PAPI 变量。</li>
+  </ul>
+</section>
+
+
+<section id="editor">
+  <h2>配置编辑器</h2>
+  <p>
+    仓库内置离线编辑器：<a href="editor/index.html"><b>打开 CustomQuest 配置编辑器</b></a>。
+    直接打开 <code>editor/index.html</code> 即可使用，不需要安装 Node.js，也不会上传配置。
+  </p>
+  <ul>
+    <li>支持 <code>kill_mob</code>、<code>submit_item</code>、<code>craft_item</code>、<code>craft_count</code>、<code>describe</code> 五类任务及 NPC 对话；</li>
+    <li>任务表单按“基础信息、任务目标、达成行为、高级设置”分区，高级设置默认折叠；</li>
+    <li>右侧实时预览 YAML，可复制、下载、导入已有配置或重置草稿；</li>
+    <li>草稿只保存在当前浏览器本地缓存中，刷新页面后可恢复；</li>
+    <li><code>craft_item</code> 填写 EpicCraftingsPlus 合成名称；<code>craft_count</code> 只需填写总次数。</li>
+  </ul>
+</section>
+
+<section id="conditions">
+  <h2>分支门控条件写法（NPC 对话）</h2>
+  <p>
+    接取任务<b>不校验前置条件</b>。任务门控（谁能看到并点击接取选项）由 NPC 对话分支条件控制：
+  </p>
+  <h3>PAPI 条件（papi）</h3>
+  <table>
+    <tr><th>写法</th><th>含义</th></tr>
+    <tr><td><code>%player_level% &gt;= 10</code></td><td>数值比较（支持 &gt;= &lt;= &gt; &lt;）</td></tr>
+    <tr><td><code>%var% == 值</code> / <code>!=</code></td><td>相等 / 不相等</td></tr>
+    <tr><td><code>%var% contains 文本</code> / <code>!contains</code></td><td>包含 / 不包含</td></tr>
+    <tr><td><code>%var%</code></td><td>单独占位符：值为 true/yes/1 或非空且非 false/no/0 为真</td></tr>
+    <tr><td><code>!%var%</code></td><td>取反</td></tr>
+  </table>
+  <h3>NPC data 条件（data / data-value）</h3>
+  <table>
+    <tr><th>写法</th><th>含义</th></tr>
+    <tr><td><code>stage</code></td><td>该 data 变量存在</td></tr>
+    <tr><td><code>stage==none</code></td><td>等于（支持 !=）</td></tr>
+    <tr><td><code>level&gt;=1</code> / <code>&lt;3</code></td><td>数值比较</td></tr>
+  </table>
+  <div class="notice">
+    <b>NPC data 是玩家级数据：</b>每个玩家在同一 NPC 上有自己独立的 data 值（持久化保存），
+    因此不同玩家会看到不同的对话分支；管理员可用
+    <code>/cq data set &lt;玩家&gt; &lt;npcId&gt; &lt;value&gt;</code> 手动管理。
+  </div>
+  <div class="notice">
+    例如：分支 A 的 <code>data: stage / data-value: none</code> 只在<b>该玩家</b>的 data「stage」为 none 时显示，
+    玩家点击其中的接取选项后通过 <code>then: |</code> 中的 <code>npc data set 5 kill_doing</code> 将其改为 kill_doing，
+    该玩家下次点击 NPC 就会进入任务进行中的分支——分支任务 / 分支对话由此驱动。
+  </div>
+</section>
+
+<section id="dialogue">
+  <h2>NPC 对话配置 dialogues/</h2>
+  <p>
+    每个文件通过 <code>npc: &lt;id&gt;</code> 绑定 Citizens NPC（可写列表 <code>[5, 6]</code>）。
+    玩家点击 NPC 后，<b>从上到下</b>查找第一个「条件全部满足」的分支显示；带条件的分支都不满足时，
+    没有条件匹配时不打开对话。
+  </p>
+<pre><code><span class="key">npc</span>: <span class="val">5</span>                        <span class="cmt"># 绑定 NPC id</span>
+<span class="key">title</span>: <span class="val">"&amp;8[&amp;6任务发布官&amp;8] &amp;f老杰克"</span>
+
+<span class="cmt"># 首次对话初始化（可选，推荐）：玩家第一次点击该 NPC 时，</span>
+<span class="cmt"># 若某个 data 变量不存在则自动写入默认值（玩家级），</span>
+<span class="cmt"># 让 data: stage / data-value: none 这类初始分支条件第一次就能生效</span>
+<span class="key">default-data</span>:
+  <span class="key">stage</span>: <span class="val">none</span>
+
+<span class="key">branches</span>:
+  <span class="key">all_done</span>:                    <span class="cmt"># PAPI 完成分支必须放在 data 分支之前</span>
+    <span class="key">papi</span>:
+      - <span class="val">"%customquest_done_example_submit% == true"</span>
+    <span class="key">lines</span>: [<span class="val">"&amp;f感谢你的帮助！"</span>]
+
+  <span class="key">kill_done_offer</span>:             <span class="cmt"># 击杀完成后提供物品任务</span>
+    <span class="key">papi</span>:
+      - <span class="val">"%customquest_done_example_kill% == true"</span>
+      - <span class="val">"%customquest_done_example_submit% == false"</span>
+      - <span class="val">"%customquest_has_example_submit% == false"</span>
+    <span class="key">lines</span>: [<span class="val">"&amp;f还需要一些矿物，你愿意帮我收集吗？"</span>]
+    <span class="key">options</span>:
+      <span class="key">accept</span>:
+        <span class="key">text</span>: <span class="val">"&amp;a&amp;l[接受收集任务]"</span>
+        <span class="key">kether</span>:
+          - <span class="val">"quest accept example_submit"</span>
+          - <span class="val">"npc data set 5 item_collecting"</span>
+
+  <span class="key">initial</span>:                     <span class="cmt"># 会话绑定的稳定分支 ID</span>
+    <span class="key">data</span>: <span class="val">stage</span>               <span class="cmt"># NPC data 条件（写法一：key + data-value）</span>
+    <span class="key">data-value</span>: <span class="val">none</span>
+    <span class="cmt"># 或列表写法（写法二）：data: ["stage==none", "level&gt;=1"]</span>
+    <span class="key">papi</span>:                      <span class="cmt"># PAPI 条件（可选）</span>
+      - <span class="val">"%player_level% &gt;= 3"</span>
+    <span class="key">lines</span>:                     <span class="cmt"># 对话内容</span>
+      - <span class="val">"&amp;f你好，旅行者！我这里有件麻烦事……"</span>
+    <span class="key">options</span>:                   <span class="cmt"># 可点击选项</span>
+      <span class="key">accept</span>:
+        <span class="key">text</span>: <span class="val">"&amp;a&amp;l[接受任务] &amp;a清剿荒野"</span>
+        <span class="cmt"># ---- 接取任务 ----</span>
+        <span class="key">kether</span>:
+          - <span class="val">"quest accept example_kill"</span>        <span class="cmt"># 不校验前置条件</span>
+          - <span class="val">"npc data set 5 kill_doing"</span>   <span class="cmt"># 接取成功后设置 NPC data 变量</span>
+      <span class="key">reject</span>:
+        <span class="key">text</span>: <span class="val">"&amp;7我暂时没空"</span>
+        <span class="key">kether</span>:
+          - <span class="val">"npc data set 5 none"</span>
+
+  <span class="key">kill_doing</span>:
+    <span class="key">data</span>: <span class="val">stage</span>
+    <span class="key">data-value</span>: <span class="val">kill_doing</span>
+    <span class="key">lines</span>: [<span class="val">"&amp;f怪物清剿得如何了？"</span>]
+
+  <span class="key">kill_ready</span>:
+    <span class="key">data</span>: <span class="val">stage</span>
+    <span class="key">data-value</span>: <span class="val">kill_ready</span>
+    <span class="key">lines</span>:
+      - <span class="val">"&amp;a你已经达成任务条件。"</span>
+    <span class="key">options</span>:
+      <span class="key">submit</span>:
+        <span class="key">text</span>: <span class="val">"&amp;a&amp;l[提交击杀任务]"</span>
+        <span class="key">submit-quest</span>: <span class="val">example_kill</span>
+
+  <span class="key">item_collecting</span>:
+    <span class="key">data</span>: <span class="val">stage</span>
+    <span class="key">data-value</span>: <span class="val">item_collecting</span>
+    <span class="key">lines</span>: [<span class="val">"&amp;f把要求的物品放在主背包后交给我。"</span>]
+    <span class="key">options</span>:
+      <span class="key">submit</span>:
+        <span class="key">text</span>: <span class="val">"&amp;a&amp;l[提交物品]"</span>
+        <span class="key">submit-quest</span>: <span class="val">example_submit</span>
+        <span class="key">submit-items</span>:                 <span class="cmt"># 可选；不写则沿用任务 objectives/items</span>
+          - <span class="key">item</span>: <span class="val">DIAMOND</span>
+            <span class="key">amount</span>: <span class="val">5</span>
+            <span class="key">name</span>: <span class="val">"&amp;b大钻石"</span>
+            <span class="key">item-name</span>: <span class="val">"&amp;b大钻石"</span>
+          - <span class="val">"IRON_INGOT:10"</span>
+
+</code></pre>
+
+  <h3>分支对话流程图（data 驱动）</h3>
+  <pre><code>玩家点击 NPC #5
+   │
+   ├─ initial ─────────► accept example_kill ─► stage=kill_doing
+   ├─ kill_doing ──────► 击杀目标达成 ────────► condition-commands 设置 kill_ready
+   ├─ kill_ready ──────► submit example_kill ─► 写入击杀任务完成状态
+   ├─ kill_done_offer ─► accept example_submit ► stage=item_collecting
+   ├─ item_collecting ─► 校验并扣除 submit-items ► 写入物品任务完成状态
+   └─ all_done ────────► 完成对话</code></pre>
+
+  <ul>
+    <li>对话选项通过箱子点击提交，并共用绑定玩家的一次性会话；执行时会再次校验分支条件、NPC 状态和交互距离；</li>
+    <li>接取任务请在选项的 <code>then: |</code>（节点式配置）或 <code>kether</code>（传统配置）中使用内置动作 <code>quest accept &lt;任务ID&gt;</code>；该动作<b>不校验前置条件</b>，后续动作按顺序执行；</li>
+    <li><code>submit-quest</code> 只在进度足够时成功；物品任务会原子扣物并列出全部缺少项，成功后完成任务但不修改 NPC data；</li>
+    <li><code>submit-items</code> 必须与 <code>submit-quest</code> 同时使用，仅支持 <code>submit_item</code>；任务原目标与覆盖清单都会校验，实际只扣覆盖清单；</li>
+    <li>映射写法支持 <code>item: DIAMOND</code> + <code>amount: 5</code>，以及可选 <code>name</code>/<code>item-name</code>；空列表、空气、未知材料和非正整数会拒绝加载；</li>
+    <li>任一物品不足时零扣除、零完成；两份清单的缺口按多重集合合并，同规格保留更大实际缺口后全部提示；</li>
+    <li>选项 Kether 执行时注入变量：<code>@NpcId</code>、<code>@BranchId</code>、<code>@Option</code>、<code>@OptionId</code>、<code>@Player</code>；</li>
+    <li>单次最多 8 行、6 个选项、8192 bytes；选项 ID 必须为 1–64 UTF-8 bytes 且不能包含控制字符；</li>
+    <li><b>NPC data 为玩家级数据</b>：每个玩家在该 NPC 上有独立 data 值（持久化保存），不同玩家处于不同对话分支；
+      管理指令需指定玩家：<code>/cq data set &lt;玩家&gt; 5 none</code>；</li>
+    <li>data 变量为 <b>持久化</b> 存储，服务器重启后不丢失。</li>
+  </ul>
+</section>
+
+<section id="kether">
+  <h2>自定义 Kether 动作</h2>
+  <p>在 NPC 对话选项的 Kether 脚本中可用：</p>
+  <table>
+    <tr><th>动作</th><th>说明</th></tr>
+    <tr><td><code>quest accept &lt;任务ID&gt;</code></td><td>接取任务（不校验前置条件）</td></tr>
+    <tr><td><code>quest abandon &lt;任务ID&gt;</code></td><td>放弃任务</td></tr>
+    <tr><td><code>quest submit &lt;任务ID&gt;</code></td><td>提交进度（足够则完成）</td></tr>
+    <tr><td><code>quest complete &lt;任务ID&gt;</code></td><td>强制完成；提交物品任务仍需交齐物品，描述任务可直接完成</td></tr>
+    <tr><td><code>quest progress &lt;任务ID&gt;</code></td><td>返回当前进度（数值）</td></tr>
+    <tr><td><code>quest has &lt;任务ID&gt;</code> / <code>quest done &lt;任务ID&gt;</code></td><td>是否已接取 / 已完成（布尔）</td></tr>
+    <tr><td><code>dialogue open [npcId]</code></td><td>打开 NPC 对话（缺省用当前 <code>@NpcId</code>）</td></tr>
+    <tr><td><code>npc data set &lt;npcId&gt; &lt;value&gt;</code></td><td>设置当前玩家在该 NPC 上的变量值（持久化）</td></tr>
+    <tr><td><code>npc data get &lt;npcId&gt;</code></td><td>获取当前玩家在该 NPC 上的变量值</td></tr>
+    <tr><td><code>npc data remove &lt;npcId&gt;</code></td><td>删除当前玩家在该 NPC 上的变量</td></tr>
+  </table>
+  <p class="muted">
+    同时支持 TabooLib Kether 全部内置动作（<code>command</code>、<code>message</code>、<code>give-item</code>、<code>if/else</code> 等），
+    可自由组合实现复杂逻辑（如 <code>if check quest done x then npc data set 5 done else message '&amp;c未完成'</code>）。
+  </p>
+</section>
+
+<section id="commands">
+  <h2>指令列表</h2>
+  <table>
+    <tr><th>指令</th><th>权限</th><th>说明</th></tr>
+    <tr><td><code>/cq help</code></td><td>所有人</td><td>查看帮助</td></tr>
+    <tr><td><code>/cq list</code></td><td>当前实际所有人</td><td>列出所有任务；权限检查存在已知缺口</td></tr>
+    <tr><td><code>/cq reload</code></td><td>customquest.admin</td><td>重载任务、对话与全局配置</td></tr>
+    <tr><td><code>/cq quest accept &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>强制接取任务</td></tr>
+    <tr><td><code>/cq quest abandon &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>放弃任务</td></tr>
+    <tr><td><code>/cq quest complete &lt;玩家&gt; &lt;任务ID&gt;</code></td><td>customquest.admin</td><td>强制完成；提交物品任务仍需交齐物品</td></tr>
+    <tr><td><code>/cq data set &lt;玩家&gt; &lt;npcId&gt; &lt;value&gt;</code></td><td>customquest.admin</td><td>设置指定玩家在该 NPC 上的变量值</td></tr>
+    <tr><td><code>/cq data get &lt;玩家&gt; &lt;npcId&gt;</code></td><td>customquest.admin</td><td>查看指定玩家在该 NPC 上的变量值</td></tr>
+    <tr><td><code>/cq data remove &lt;玩家&gt; &lt;npcId&gt;</code></td><td>customquest.admin</td><td>删除指定玩家在该 NPC 上的变量</td></tr>
+  </table>
+</section>
+
+<section id="papi">
+  <h2>PAPI 变量</h2>
+  <table>
+    <tr><th>变量</th><th>含义</th></tr>
+    <tr><td><code>%customquest_progress_&lt;任务ID&gt;%</code></td><td>当前进度（多目标合计）</td></tr>
+    <tr><td><code>%customquest_has_&lt;任务ID&gt;%</code></td><td>是否已接取（true/false）</td></tr>
+    <tr><td><code>%customquest_done_&lt;任务ID&gt;%</code></td><td>是否已完成（true/false）</td></tr>
+    <tr><td><code>%customquest_state_&lt;任务ID&gt;%</code></td><td>状态（none / accepted / done）</td></tr>
+    <tr><td><code>%customquest_accepted_count%</code></td><td>已接取任务数</td></tr>
+    <tr><td><code>%customquest_done_count%</code></td><td>已完成任务数</td></tr>
+  </table>
+</section>
+
+<section id="build">
+  <h2>构建</h2>
+<pre><code>./gradlew test build --console=plain
+# 产物：build/libs/CustomQuest-1.7.2.jar</code></pre>
+  <ul>
+    <li>需要 JDK 21；</li>
+    <li>仓库已内置 <code>libs/PlaceholderAPI-2.12.3.jar</code> 与 <code>libs/CitizensAPI-2.0.36-SNAPSHOT.jar</code> 作为离线编译依赖，均不会打入插件 JAR；</li>
+    <li>Gradle Wrapper 固定使用 8.14.3；</li>
+    <li>TabooLib 6.2.4-c90a237 通过 TabooLib Gradle 插件内置/重定向，服务端无需单独安装 TabooLib 插件；</li>
+    <li>更换 Paper 版本：修改 <code>build.gradle.kts</code> 中的 <code>paper-api</code> 版本号后重新构建。</li>
+  </ul>
+</section>
+
+<section id="faq">
+  <h2>常见问题</h2>
+  <h3>1. 首次启动卡在「正在下载依赖」？</h3>
+  <p>TabooLib 运行时模块需要从 <code>repo.tabooproject.org</code> 下载一次（约 10~20MB），完成后缓存于
+  服务器根目录的 <code>libraries</code> 文件夹，之后可离线启动。</p>
+  <h3>1.1 服务器无法访问 repo.tabooproject.org（UnknownHostException / 连接超时）？</h3>
+  <p>这是服务器网络（DNS）无法解析 TabooLib 依赖仓库导致的，报错为：</p>
+  <pre><code>UnknownHostException: repo.tabooproject.org / sacredcraft.cn
+无法初始化原始加载器
+无法启动 Kotlin 环境。(未能找到 kotlin2021.Lazy)</code></pre>
+  <p><b>解决办法：</b>在可联网构建机执行 <code>./gradlew collectLibs --console=plain</code>，然后：</p>
+  <ol>
+    <li>保持 Maven 目录结构，将 <code>offline-libs/</code> 的内容复制到服务器根目录 <code>libraries/</code>；</li>
+    <li>单独安装 CustomQuest、PlaceholderAPI，以及按需使用的 MythicMobs、Citizens、EpicCraftingsPlus；</li>
+    <li>删除旧版插件 jar 后重启服务器。</li>
+  </ol>
+  <p class="muted">插件检测到依赖已存在时会跳过下载直接加载，服务器全程无需联网。</p>
+  <h3>2. Citizens 提示「Error occurred while enabling Citizens」？</h3>
+  <p>请使用与 Paper 1.21.x 匹配的 Citizens 版本（2.0.36 以上新构建），本插件对 Citizens 采用软依赖，Citizens 异常不影响本插件其他功能。</p>
+  <h3>3. 任务能接取但击杀不计数？</h3>
+  <p>请确认任务配置中的 <code>mob</code> 与 MythicMobs 怪物<b>内部名</b>完全一致（大小写不敏感），且击杀者是玩家本人。</p>
+  <h3>4. EpicCraftingsPlus 合成任务不计数？</h3>
+  <p>确认 EpicCraftingsPlus 已正常启用；<code>craft_item</code> 的 <code>crafting</code> 必须填写该插件配置中的合成名称，而不是 Bukkit 材料名。修改后执行 <code>/cq reload</code>。</p>
+  <h3>5. 点击对话选项没反应？</h3>
+  <p>请确认玩家未被聊天拦截类插件屏蔽 <code>run_command</code> 点击事件，且 <code>/cq</code> 指令未被其他插件占用。</p>
+  <h3>6. 计分板不显示？</h3>
+  <p>检查 <code>scoreboard.enabled</code> 是否为 <code>true</code> 并执行 <code>/cq reload</code>。检测到其他插件已占用侧边栏时 CustomQuest 会主动让出，不会覆盖或反复抢占。</p>
+</section>
+
+<footer>
+  CustomQuest 1.7.2 Wiki · Paper 1.21.x · TabooLib 6.2.4（Kether）· MythicMobs × Citizens2 × PlaceholderAPI
+</footer>
+
+</main>
+</div>
+
+<script>
+  // 侧边栏高亮
+  const links = Array.from(document.querySelectorAll('nav a[href^="#"]'));
+  const sections = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = '#' + entry.target.id;
+        links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === id));
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

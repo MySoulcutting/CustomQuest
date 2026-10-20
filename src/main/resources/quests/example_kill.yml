@@ -1,0 +1,84 @@
+# ================================================================
+# 示例任务：击杀 MythicMobs 怪物（多目标）
+# 文件位置：plugins/CustomQuest/quests/
+# ================================================================
+
+# 任务 ID（全局唯一，用于 quest accept 等 Kether 动作与 %customquest_done_<ID>%）
+quest-id: example_kill
+
+# 任务名称（支持 & 颜色代码与 PAPI）
+name: "&e清剿荒野"
+
+# ----------------------------------------------------------------
+# 全息视图（计分板）显示自定义（可选，二选一）：
+#
+# 方式一（完全自定义，推荐）：写 board-title + board-line 列表，
+#   直接指定计分板上显示的每一行（可写任意多行，不会自动生成目标行）。
+#   board-title 变量：{name} {id} {type}
+#   board-line 每行变量：
+#     {name} {id} {type} {current} {total}              —— 任务信息与总进度
+#     {target1} {display1} {mob1} {item1}               —— 第 1 个目标的标识/显示名
+#     {current1} {total1} {amount1}                     —— 第 1 个目标的进度/需求
+#     …… 依此类推，数字为目标序号（从 1 开始）
+# ----------------------------------------------------------------
+# board-title: "&6&l{name}"
+# board-line:
+#   - "&7目标1：击杀 &f{display1} &e{current1}&7/&e{total1}"
+#   - "&7目标2：击杀 &f{display2} &e{current2}&7/&e{total2}"
+#   - "&7总进度：&e{current}&7/&e{total}"
+
+# 任务描述（接取任务时显示，支持多行）
+description:
+  - "&7荒野上的怪物最近越来越猖獗，"
+  - "&7去清剿它们吧！"
+
+# ----------------------------------------------------------------
+# 任务导航（可选）：HUD 任务名右侧的「追踪」按钮据此显示，没写就不显示按钮
+#   navigate: <世界名>,<x>,<y>,<z>        —— 位置自定义，一行逗号分隔
+#   navigate-on-accept: true/false        —— 接取任务后是否自动开始导航（默认 false）
+# 说明：方向由客户端导航模组绘制，玩家未安装时点击追踪会收到提示；
+#       同一时间只允许追踪一个任务，放弃/完成该任务会自动结束导航。
+# ----------------------------------------------------------------
+# navigate: world,68.8782,75.0,35.0746
+# navigate-on-accept: false
+
+# 任务类型：kill_mob（击杀 MythicMobs 怪物）/ submit_item（提交物品）
+type: kill_mob
+
+# ----------------------------------------------------------------
+# 目标配置（一个任务可包含多个目标）
+# 写法一（多目标，推荐）：
+#   name 为可选的自定义显示名（计分板/提示里显示的文字，
+#   不填则显示 MythicMobs 怪物内部名）
+# ----------------------------------------------------------------
+objectives:
+  - mob: SkeletonKing      # MythicMobs 怪物内部名（用于击杀计数匹配）
+    amount: 10             # 击杀数量
+    name: "&7骷髅王"       # 自定义显示名（可选）
+    # 可选：该目标在计分板上的显示行格式（留空/不写 = 用 config.yml 的 kill-line）
+    # 可用变量：{mob} {item} {target} {display} {current} {total} {amount} {index} {name} {id} {type}
+    # board-line: "&c击杀 {target} &e{current}&7/&e{total}"
+  - mob: ZombieMinion
+    amount: 5
+    name: "&2僵尸小兵"
+
+# ----------------------------------------------------------------
+# 写法二（单目标简写，与 objectives 二选一，objectives 优先）：
+# mob: SkeletonKing
+# amount: 10
+# ----------------------------------------------------------------
+
+# 说明：接取任务不校验前置条件。
+# 任务门控（谁能看到/点击接取选项）请使用 NPC 对话分支的 data / PAPI 条件，
+# 或在对话选项的 then: | 中使用 Kether 动作 quest accept 接取。
+
+# 达成全部目标时执行一次。message 为聊天提示动作，支持 %quest_name% / %quest_id%。
+# 击杀事件没有“当前 NPC”上下文，修改分支变量时需要明确填写 Citizens NPC id。
+condition-commands:
+  - "message &a你已达成任务条件：&f%quest_name%"
+  - "cq data set %player% 5 kill_ready"
+
+# 是否可重复接取
+repeatable: false
+# 可重复接取的冷却时间（秒，仅 repeatable: true 时生效）
+cooldown: 3600

@@ -1,0 +1,61 @@
+# ================================================================
+# 节点式 NPC 对话示例
+# 文件位置：plugins/CustomQuest/dialogues/
+# ================================================================
+
+title: "&8[&6任务发布官&8] &fNPC"
+npc id: '5'
+
+# 按顺序检测条件，打开对应的对话节点。
+# profile data 不存在时就是 null；变量按玩家独立保存。
+when:
+  - if: "check profile data 5== null"
+    open: suxing1
+  - if: "check profile data 5== 1 , %player_level% >= 10"
+    open: suxing2
+
+suxing1:
+  npc:
+    - '你好，旅行者！'
+    - '我是任务发布官。'
+  format: generic
+  player:
+    - reply: '&f你有什么任务'
+      then: |
+        quest accept example_kill
+        npc data set 5 1
+        goto suxing2
+    - reply: '好的，稍后见'
+      then: |
+        close
+
+suxing2:
+  npc:
+    - '&a欢迎回来，旅行者！'
+    - '&f你已经达到要求，可以继续任务。'
+  format: generic
+  player:
+    - reply: '&e提交物品任务'
+      then: |
+        quest accept example_submit
+        npc data set 5 2
+        goto submit_item
+    - reply: '&7稍后见'
+      then: |
+        close
+
+submit_item:
+  npc:
+    - '&f请把任务物品交给我。'
+  format: generic
+  player:
+    - reply: '&a检查并提交物品'
+      submit-quest: example_submit
+      submit-items:
+        - 'DIAMOND:5'
+        - 'IRON_INGOT:10'
+      then: |
+        close
+    - reply: '&7稍后见'
+      then: |
+        close
